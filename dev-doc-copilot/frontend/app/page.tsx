@@ -1,83 +1,49 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import Sidebar, { type TabId } from "@/components/Sidebar"
-import CommandPalette from "@/components/CommandPalette"
+import { useState } from "react"
+import { AnimatePresence } from "framer-motion"
+import SideNavBar, { type TabId } from "@/components/SideNavBar"
+import TopNavBar from "@/components/TopNavBar"
+import ToastContainer from "@/components/Toast"
 import Dashboard from "@/components/Dashboard"
 import ChatInterface from "@/components/ChatInterface"
 import IngestionPanel from "@/components/IngestionPanel"
-import D3KnowledgeGraph from "@/components/D3KnowledgeGraph"
+import KnowledgeGraph from "@/components/KnowledgeGraph"
 import MemoryManager from "@/components/MemoryManager"
-import ToastContainer from "@/components/Toast"
 import { ToastProvider } from "@/hooks/use-toast"
-
-const pageVariants = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.1, 0, 1] } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.15, ease: [0.25, 0.1, 0, 1] } },
-}
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard")
-  const [projectName, setProjectName] = useState("dev-copilot-demo")
-  const [paletteOpen, setPaletteOpen] = useState(false)
-
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault()
-        setPaletteOpen(p => !p)
-        return
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "5") {
-        e.preventDefault()
-        const tabs: TabId[] = ["dashboard", "chat", "ingest", "graph", "memory"]
-        setActiveTab(tabs[parseInt(e.key) - 1])
-      }
-    }
-    window.addEventListener("keydown", handleKey)
-    return () => window.removeEventListener("keydown", handleKey)
-  }, [])
+  const [projectName, setProjectName] = useState("Project Alpha")
 
   return (
     <ToastProvider>
-      <ToastContainer />
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        onNavigate={(id) => setActiveTab(id as TabId)}
-      />
-      <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_34%),radial-gradient(circle_at_top_right,hsl(var(--accent)/0.08),transparent_30%),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)))]" />
-        <div className="relative flex min-h-screen">
-          <Sidebar
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            projectName={projectName}
-            onProjectChange={setProjectName}
-          />
-          <main className="flex-1 min-w-0 overflow-hidden">
-            <div className="h-full overflow-y-auto scroll-smooth">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  variants={pageVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:px-8 lg:py-8"
-                >
-                  {activeTab === "dashboard" && <Dashboard project={projectName} />}
-                  {activeTab === "chat" && <ChatInterface project={projectName} />}
-                  {activeTab === "ingest" && <IngestionPanel project={projectName} />}
-                  {activeTab === "graph" && <D3KnowledgeGraph project={projectName} height={600} />}
-                  {activeTab === "memory" && <MemoryManager project={projectName} />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </main>
-        </div>
+      <div className="min-h-screen bg-background text-on-surface selection:bg-primary/30">
+        <div className="radial-glow pointer-events-none fixed inset-0 z-0"></div>
+
+        <SideNavBar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          projectName={projectName}
+          onProjectChange={setProjectName}
+        />
+
+        <TopNavBar activeTab={activeTab} onTabChange={setActiveTab} />
+
+        <AnimatePresence mode="wait">
+          {activeTab === "dashboard" && <Dashboard key="dashboard" projectName={projectName} />}
+          {activeTab === "chat" && <ChatInterface key="chat" projectName={projectName} />}
+          {activeTab === "ingest" && <IngestionPanel key="ingest" projectName={projectName} />}
+          {activeTab === "graph" && <KnowledgeGraph key="graph" projectName={projectName} />}
+          {activeTab === "memory" && <MemoryManager key="memory" projectName={projectName} />}
+        </AnimatePresence>
+
+        {/* FAB */}
+        <button className="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary-container rounded-full shadow-2xl shadow-primary/40 flex items-center justify-center group hover:scale-110 transition-all z-50">
+          <span className="material-symbols-outlined text-[28px] group-hover:rotate-90 transition-transform">bolt</span>
+        </button>
+
+        <ToastContainer />
       </div>
     </ToastProvider>
   )

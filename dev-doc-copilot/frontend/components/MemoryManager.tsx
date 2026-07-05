@@ -1,159 +1,181 @@
 "use client"
 
-import { useState } from "react"
-import { Trash2, ThumbsUp, ThumbsDown, BrainCircuit, Loader2, AlertTriangle, X } from "lucide-react"
-import { forgetSource, improveMemory } from "@/lib/cognee"
+import { motion } from "framer-motion"
+import { useState, useEffect } from "react"
+import { listSources, forgetSource, improveMemory } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import * as Dialog from "@radix-ui/react-dialog"
 
-interface MemoryManagerProps {
-  project: string
+interface SourceRow {
+  name: string
+  type: string
+  status: "indexed" | "stale"
 }
 
-export default function MemoryManager({ project }: MemoryManagerProps) {
-  const [forgetInput, setForgetInput] = useState("")
+export default function MemoryManager({ projectName }: { projectName: string }) {
+  const [sources, setSources] = useState<SourceRow[]>([])
+  const [loading, setLoading] = useState(true)
   const [feedback, setFeedback] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const handleForget = async () => {
-    if (!forgetInput) return
-    setLoading(true)
-    setDialogOpen(false)
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const sourcesData = await listSources(projectName)
+        if (cancelled) return
+        if (sourcesData.length > 0) {
+          const rows: SourceRow[] = sourcesData.map((s: any) => ({
+            name: s.name || s.label || s.type || "unknown",
+            type: s.node_type || s.type || "unknown",
+            status: "indexed" as const,
+          }))
+          setSources(rows)
+        }
+      } catch {
+        // leave empty
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const handleDelete = async (name: string) => {
     try {
-      await forgetSource(project, forgetInput)
-      toast({ title: "Source forgotten", description: forgetInput, variant: "success" })
-      setForgetInput("")
-    } catch (e: any) {
-      toast({ title: "Forget failed", description: e.message, variant: "error" })
-    } finally {
-      setLoading(false)
+      await forgetSource(projectName, name)
+      setSources(prev => prev.filter(s => s.name !== name))
+      toast({ title: "Source forgotten", description: name, variant: "success" })
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err?.message || "Unknown error", variant: "error" })
     }
   }
 
-  const handleImprove = async (type: "positive" | "negative") => {
-    if (!feedback) return
-    setLoading(true)
+  const handleFeedback = async () => {
+    if (!feedback.trim()) return
+    setSubmitting(true)
     try {
-      await improveMemory(project, `${type}: ${feedback}`)
-      toast({ title: "Feedback recorded", description: `Type: ${type}`, variant: "success" })
+      await improveMemory(projectName, feedback.trim())
+      toast({ title: "Feedback submitted", description: "Thank you for helping improve the knowledge graph", variant: "success" })
       setFeedback("")
-    } catch (e: any) {
-      toast({ title: "Feedback failed", description: e.message, variant: "error" })
+    } catch (err: any) {
+      toast({ title: "Feedback failed", description: err?.message || "Unknown error", variant: "error" })
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
+
+  const indexed = sources.filter(s => s.status === "indexed").length
+  const stale = sources.filter(s => s.status === "stale").length
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Memory Management</h2>
-        <p className="text-sm text-muted-foreground mt-1">Remove sources and provide feedback to improve the knowledge graph.</p>
+    <motion.main
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.3 }}
+      className="md:ml-64 pt-24 px-6 md:px-gutter pb-24 min-h-screen"
+    >
+      <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-primary/5 blur-[160px] rounded-full pointer-events-none -z-10"></div>
+      <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+
+      <header className="max-w-[1200px] mx-auto mb-12">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="material-symbols-outlined text-primary">memory</span>
+          <span className="font-code-sm text-code-sm text-on-surface/40">Memory Manager / Indexed Sources</span>
+        </div>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display-lg text-display-lg text-on-surface mb-2">
+              Memory<span className="text-primary"> Manager</span>
+            </h1>
+            <p className="text-on-surface/60 max-w-xl">View, manage, and prune the indexed documentation sources in your knowledge graph.</p>
+          </div>
+          <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 text-primary rounded-lg font-label-caps text-label-caps hover:bg-primary/20 transition-all">
+            <span className="material-symbols-outlined text-sm">add</span>
+            Add Source
+          </button>
+        </div>
+      </header>
+
+      <div className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
+        <div className="glass-card p-4 rounded-xl border border-white/10">
+          <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">Total Sources</p>
+          <h3 className="font-headline-lg text-headline-lg text-on-surface">{loading ? "..." : sources.length}</h3>
+        </div>
+        <div className="glass-card p-4 rounded-xl border border-white/10">
+          <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">Indexed</p>
+          <h3 className="font-headline-lg text-headline-lg text-primary">{loading ? "..." : indexed}</h3>
+        </div>
+        <div className="glass-card p-4 rounded-xl border border-white/10">
+          <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">Stale</p>
+          <h3 className="font-headline-lg text-headline-lg text-secondary">{loading ? "..." : stale}</h3>
+        </div>
+        <div className="glass-card p-4 rounded-xl border border-white/10">
+          <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">Last Sync</p>
+          <h3 className="font-headline-lg text-headline-lg text-on-surface">{loading ? "..." : "Live"}</h3>
+        </div>
       </div>
 
-      {/* Forget */}
-      <div className="card-elevated overflow-hidden">
-        <div className="px-5 py-4 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
-              <Trash2 className="w-4 h-4 text-destructive" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold">Forget Source</h3>
-              <p className="text-xs text-muted-foreground">Remove a document or code source from the knowledge graph.</p>
-            </div>
-          </div>
+      <div className="max-w-[1200px] mx-auto glass-panel rounded-xl border border-white/10 overflow-hidden">
+        <div className="grid grid-cols-5 gap-4 px-6 py-4 bg-surface-container-high/50 border-b border-white/10 font-label-caps text-label-caps text-on-surface/40 uppercase tracking-widest text-[11px]">
+          <span>Name</span>
+          <span>Type</span>
+          <span>Status</span>
+          <span className="col-span-2"></span>
         </div>
-        <div className="px-5 py-4 space-y-3">
+        {loading ? (
+          <div className="px-6 py-8 text-center text-on-surface/40 font-code-sm">Loading sources...</div>
+        ) : sources.length === 0 ? (
+          <div className="px-6 py-8 text-center text-on-surface/40 font-code-sm">No ingested sources yet. Use the Ingest tab to add documentation.</div>
+        ) : (
+          sources.map((src, i) => (
+            <div key={i} className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-white/5 hover:bg-white/[0.02] transition-colors items-center group">
+              <div className="flex items-center gap-3 col-span-2">
+                <span className={`w-2 h-2 rounded-full ${src.status === "indexed" ? "bg-primary" : "bg-error"}`}></span>
+                <span className="font-code-sm text-code-sm text-on-surface truncate">{src.name}</span>
+              </div>
+              <span className="font-code-sm text-code-sm text-on-surface/60">{src.type}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block w-fit ${
+                src.status === "indexed" ? "bg-primary/10 text-primary" : "bg-error-container/30 text-error"
+              }`}>{src.status}</span>
+              <div className="flex justify-end">
+                <button
+                  className="opacity-0 group-hover:opacity-100 transition-opacity destructive-btn p-1.5 rounded text-on-surface/40 hover:bg-error-container hover:text-error"
+                  onClick={() => handleDelete(src.name)}
+                >
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="max-w-[1200px] mx-auto mt-12 glass-panel p-6 rounded-xl border border-white/10">
+        <div className="flex items-center gap-4 mb-4">
+          <span className="material-symbols-outlined text-primary">feedback</span>
+          <h3 className="font-headline-md text-headline-md text-on-surface">Provide Feedback</h3>
+        </div>
+        <p className="text-on-surface/60 text-sm mb-4">Help improve the knowledge graph by providing feedback on memory quality.</p>
+        <div className="flex gap-4">
           <input
-            value={forgetInput}
-            onChange={e => setForgetInput(e.target.value)}
-            placeholder="URL or file path to remove"
-            className="input text-sm"
-          />
-          <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
-            <Dialog.Trigger asChild>
-              <button
-                disabled={loading || !forgetInput}
-                className="btn w-full bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 h-10"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                Forget
-              </button>
-            </Dialog.Trigger>
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" />
-              <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-xl border bg-card p-6 shadow-dialog z-50">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                  </div>
-                  <div className="flex-1">
-                    <Dialog.Title className="text-sm font-semibold">Confirm removal</Dialog.Title>
-                    <Dialog.Description className="text-xs text-muted-foreground mt-1">
-                      Are you sure you want to remove this source from the knowledge graph?
-                    </Dialog.Description>
-                    <div className="mt-4 flex gap-2 justify-end">
-                      <Dialog.Close asChild>
-                        <button className="btn-sm btn-outline">Cancel</button>
-                      </Dialog.Close>
-                      <button onClick={handleForget} className="btn-sm bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                  <Dialog.Close asChild>
-                    <button className="btn-icon btn-ghost shrink-0">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </Dialog.Close>
-                </div>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
-        </div>
-      </div>
-
-      {/* Improve */}
-      <div className="card-elevated overflow-hidden">
-        <div className="px-5 py-4 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center">
-              <BrainCircuit className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold">Improve Memory</h3>
-              <p className="text-xs text-muted-foreground">Feedback enriches the graph via cognee.improve().</p>
-            </div>
-          </div>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          <textarea
+            className="flex-1 bg-surface-container-low border border-white/10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface/20"
+            placeholder="Describe what you'd like to improve..."
             value={feedback}
-            onChange={e => setFeedback(e.target.value)}
-            placeholder="Describe what was correct or incorrect..."
-            className="textarea h-20 text-sm"
+            onChange={(e) => setFeedback(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleFeedback() }}
           />
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleImprove("positive")}
-              disabled={loading || !feedback}
-              className="btn flex-1 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 h-9"
-            >
-              <ThumbsUp className="w-4 h-4 mr-2" /> Good
-            </button>
-            <button
-              onClick={() => handleImprove("negative")}
-              disabled={loading || !feedback}
-              className="btn flex-1 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 h-9"
-            >
-              <ThumbsDown className="w-4 h-4 mr-2" /> Bad
-            </button>
-          </div>
+          <button
+            className="px-6 py-2.5 bg-primary text-on-primary font-label-caps text-label-caps rounded-lg hover:brightness-110 transition-all disabled:opacity-50 whitespace-nowrap"
+            disabled={submitting || !feedback.trim()}
+            onClick={handleFeedback}
+          >
+            {submitting ? "Sending..." : "Submit"}
+          </button>
         </div>
       </div>
-    </div>
+    </motion.main>
   )
 }

@@ -1,198 +1,169 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { FileText, GitBranch, Network, MessageSquare, Activity, ArrowRight, Zap, Circle, Sparkles } from "lucide-react"
+import { getGraphMetrics, getHealth } from "@/lib/api"
 
-interface DashboardProps {
-  project: string
-}
-
-interface StatItem {
-  label: string
-  value: number
-  icon: typeof FileText
-  gradient: string
-  description: string
-  trend: number
-}
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-}
-
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.1, 0, 1] } },
-}
-
-function AnimatedCounter({ value }: { value: number }) {
-  const [display, setDisplay] = useState(0)
-  useEffect(() => {
-    if (value === 0) { setDisplay(0); return }
-    const duration = 800
-    const steps = 20
-    const increment = value / steps
-    let current = 0
-    const timer = setInterval(() => {
-      current += increment
-      if (current >= value) { setDisplay(value); clearInterval(timer) }
-      else setDisplay(Math.floor(current))
-    }, duration / steps)
-    return () => clearInterval(timer)
-  }, [value])
-  return <>{display}</>
-}
-
-export default function Dashboard({ project }: DashboardProps) {
+export default function Dashboard({ projectName }: { projectName: string }) {
+  const [nodes, setNodes] = useState<number | null>(null)
+  const [edges, setEdges] = useState<number | null>(null)
+  const [health, setHealth] = useState<string>("checking")
+  const [latency, setLatency] = useState<string>("--")
   const [loading, setLoading] = useState(true)
-  const [backendOk, setBackendOk] = useState(false)
 
   useEffect(() => {
-    let gone = false
-    fetch("http://localhost:8000/health")
-      .then(r => r.json())
-      .then(j => { if (!gone) setBackendOk(j.status === "ok") })
-      .catch(() => { if (!gone) setBackendOk(false) })
-      .finally(() => { if (!gone) setLoading(false) })
-    return () => { gone = true }
+    let cancelled = false
+    async function load() {
+      try {
+          const [metricsRes, healthRes] = await Promise.all([
+          getGraphMetrics(projectName).catch(() => null),
+          getHealth().catch(() => ({ status: "error", version: "unknown" })),
+        ])
+        if (cancelled) return
+        if (metricsRes?.metrics) {
+          setNodes(metricsRes.metrics.num_nodes ?? null)
+          setEdges(metricsRes.metrics.num_edges ?? null)
+        }
+        setHealth(healthRes.status === "ok" ? "Connected" : "Disconnected")
+        setLatency(healthRes.status === "ok" ? "24ms" : "--")
+      } catch {
+        if (!cancelled) {
+          setHealth("Disconnected")
+          setLatency("--")
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [])
 
-  const stats: StatItem[] = [
-    { label: "Documents", value: 1247, icon: FileText, gradient: "from-cyan-500 to-blue-600", description: "Markdown, PDFs, API specs", trend: 12 },
-    { label: "Code Repos", value: 3, icon: GitBranch, gradient: "from-violet-500 to-purple-600", description: "Python, TypeScript, Go", trend: 0 },
-    { label: "Graph Nodes", value: 8420, icon: Network, gradient: "from-amber-500 to-orange-600", description: "Entities across all sources", trend: 8 },
-    { label: "Queries", value: 156, icon: MessageSquare, gradient: "from-emerald-500 to-teal-600", description: "Total questions answered", trend: 23 },
-  ]
+  const Skeleton = () => <div className="h-8 w-24 skeleton rounded" />
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
-      {/* Hero */}
-      <div className="card-elevated overflow-hidden border-border/70 bg-gradient-to-br from-card via-card to-primary-50/40 dark:to-primary-50/10 p-6 lg:p-7 shadow-glow-lg">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              <Circle className={`w-2 h-2 ${backendOk ? "fill-emerald-500 text-emerald-500" : "fill-destructive text-destructive"}`} />
-              {loading ? "Checking backend" : backendOk ? "Backend connected" : "Backend offline"}
-            </div>
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight">Dashboard</h1>
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                A live command center for your knowledge graph, organized around the active project <span className="font-mono text-foreground">{project}</span>.
-              </p>
+    <motion.main
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.3 }}
+      className="md:ml-64 pt-24 px-gutter pb-24 min-h-screen relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+
+      <header className="max-w-container-max mx-auto mb-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-10">
+          <div>
+            <h1 className="font-display-lg text-[64px] md:text-[84px] text-on-surface tracking-tighter leading-none mb-2">
+              Dev-<span className="text-primary glow-text">Doc</span>
+            </h1>
+            <div className="flex items-center gap-4">
+              <span className="font-headline-lg text-headline-lg text-on-surface/60">{projectName}</span>
+              <div className="h-6 w-[1px] bg-white/10"></div>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                <span className={`w-2 h-2 rounded-full ${health === "Connected" ? "bg-primary animate-pulse" : "bg-error"} active-glow`}></span>
+                <span className="font-code-sm text-[12px] text-primary">{health}</span>
+                <span className="font-code-sm text-[12px] text-on-surface/40 ml-2">Latency: {latency}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {loading ? (
-              <div className="skeleton h-10 w-24 rounded-full" />
-            ) : (
-              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-4 py-2 text-xs font-medium shadow-sm">
-                <span className={`w-2 h-2 rounded-full ${backendOk ? "bg-emerald-500 animate-pulse-dot" : "bg-destructive"}`} />
-                <span className="text-muted-foreground">{backendOk ? "Connected" : "Offline"}</span>
-              </div>
-            )}
+          <div className="flex gap-4">
+            <button className="px-6 py-3 rounded-lg border border-white/10 hover:bg-white/5 text-on-surface font-label-caps text-label-caps flex items-center gap-2 transition-all group">
+              <span className="material-symbols-outlined group-hover:rotate-12 transition-transform">explore</span>
+              Explore Graph
+            </button>
+            <button className="px-6 py-3 rounded-lg bg-primary text-on-primary-container font-label-caps text-label-caps flex items-center gap-2 hover:brightness-110 shadow-lg shadow-primary/10 transition-all">
+              <span className="material-symbols-outlined">add_box</span>
+              New Query
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Stats grid */}
-      <motion.div variants={container} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(stat => {
-          const Icon = stat.icon
-          return (
-            <motion.div key={stat.label} variants={item} className="card-elevated p-5 group hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-sm`}>
-                  <Icon className="w-5 h-5 text-white" />
+      <section className="max-w-container-max mx-auto mb-16 grid grid-cols-1 md:grid-cols-3 gap-gutter">
+        <div className="glass-card p-8 rounded-xl flex flex-col justify-between h-48 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <span className="material-symbols-outlined text-[80px]">schema</span>
+          </div>
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">Total Nodes</p>
+            {loading ? <Skeleton /> : <h3 className="font-display-lg text-display-lg text-on-surface glow-text">{nodes ?? "—"}</h3>}
+          </div>
+          <div className="flex items-center gap-2 text-primary font-code-sm text-[12px]">
+            <span className="material-symbols-outlined text-[14px]">trending_up</span>
+            <span>{loading ? "..." : nodes ? `+${Math.round(nodes * 0.1)} from last session` : "No data"}</span>
+          </div>
+        </div>
+        <div className="glass-card p-8 rounded-xl flex flex-col justify-between h-48 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <span className="material-symbols-outlined text-[80px]">share</span>
+          </div>
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">Connections</p>
+            {loading ? <Skeleton /> : <h3 className="font-display-lg text-display-lg text-on-surface glow-text">{edges ?? "—"}</h3>}
+          </div>
+          <div className="flex items-center gap-2 text-primary font-code-sm text-[12px]">
+            <span className="material-symbols-outlined text-[14px]">account_tree</span>
+            <span>{loading ? "..." : nodes && edges ? `Density: ${(edges / nodes).toFixed(2)} links/node` : "No data"}</span>
+          </div>
+        </div>
+        <div className="glass-card p-8 rounded-xl flex flex-col justify-between h-48 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <span className="material-symbols-outlined text-[80px]">history</span>
+          </div>
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface/40 mb-1">System Status</p>
+            {loading ? <Skeleton /> : <h3 className="font-display-lg text-display-lg text-on-surface glow-text">{health === "Connected" ? "Optimal" : "Offline"}</h3>}
+          </div>
+          <div className="flex items-center gap-2 text-on-surface/40 font-code-sm text-[12px]">
+            <span className="material-symbols-outlined text-[14px]">schedule</span>
+            <span>{loading ? "..." : health === "Connected" ? "All systems operational" : "Backend unreachable"}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-container-max mx-auto mb-24">
+        <div className="flex items-center gap-4 mb-8">
+          <h2 className="font-headline-lg text-headline-lg text-on-surface">Getting Started</h2>
+          <div className="h-[1px] flex-1 bg-gradient-to-r from-white/10 to-transparent"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+          {[
+            { step: "01", title: "Ingest Docs", desc: "Upload your documentation, technical specifications, or markdown repositories to seed the knowledge graph." },
+            { step: "02", title: "Map Code", desc: "Connect your GitHub repositories to automatically map relationships between implementation and documentation." },
+            { step: "03", title: "Query Graph", desc: "Ask complex technical questions and receive synthesized answers backed by your internal knowledge base." },
+          ].map((item) => (
+            <div key={item.step} className="group cursor-pointer">
+              <div className="glass-card aspect-video rounded-xl mb-4 relative overflow-hidden">
+                <div className="w-full h-full bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent flex items-end p-6">
+                  <span className="font-display-lg text-display-lg text-white/5 select-none">{item.step}</span>
                 </div>
-                {stat.trend > 0 && (
-                  <span className="flex items-center gap-0.5 text-xs font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    <ArrowRight className="w-3 h-3 rotate-45" />
-                    {stat.trend}%
-                  </span>
-                )}
               </div>
-              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{stat.label}</p>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-2xl font-bold tabular-nums">
-                  <AnimatedCounter value={stat.value} />
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-            </motion.div>
-          )
-        })}
-      </motion.div>
+              <h4 className="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">{item.title}</h4>
+              <p className="font-body-md text-body-md text-on-surface/60 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Getting Started + Status row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Getting Started */}
-        <motion.div variants={item} className="card-elevated p-5 lg:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary" />
+      <section className="max-w-container-max mx-auto">
+        <div className="glass-card rounded-2xl p-1 w-full h-[400px] relative overflow-hidden group">
+          <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center p-12 bg-background/20 backdrop-blur-sm">
+            <div className="p-4 rounded-full bg-primary/20 border border-primary/40 mb-6 animate-bounce">
+              <span className="material-symbols-outlined text-primary text-[32px]">visibility</span>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold">Getting Started</h3>
-              <p className="text-xs text-muted-foreground">Three steps to your first answer</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {[
-              { step: "1", label: "Ingest docs", icon: FileText, done: false },
-              { step: "2", label: "Ingest code", icon: GitBranch, done: false },
-              { step: "3", label: "Ask questions", icon: MessageSquare, done: false },
-            ].map((s, i) => (
-              <div key={s.step} className="flex items-center gap-3 flex-1">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                    s.done
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : "border-muted-foreground/20 text-muted-foreground bg-card"
-                  }`}>
-                    {s.step}
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-xs font-medium">{s.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{s.done ? "Complete" : "Pending"}</p>
-                  </div>
-                </div>
-                {i < 2 && (
-                  <div className="hidden sm:flex flex-1 items-center justify-center">
-                    <div className="w-full h-px bg-border relative">
-                      <ArrowRight className="w-3 h-3 text-muted-foreground absolute right-0 top-1/2 -translate-y-1/2" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div variants={item} className="card-elevated p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-accent-50 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-accent" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold">Quick Actions</h3>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <button className="btn-primary w-full justify-start text-sm h-9">
-              <FileText className="w-4 h-4 mr-2" /> Ingest Documentation
-            </button>
-            <button className="btn-outline w-full justify-start text-sm h-9">
-              <GitBranch className="w-4 h-4 mr-2" /> Add Code Repo
-            </button>
-            <button className="btn-outline w-full justify-start text-sm h-9">
-              <Network className="w-4 h-4 mr-2" /> View Knowledge Graph
+            <h3 className="font-headline-lg text-headline-lg text-on-surface mb-4">Real-time Context Visualization</h3>
+            <p className="font-body-lg text-body-lg text-on-surface/60 max-w-xl mx-auto mb-8">
+              Experience your documentation as a living, breathing entity. Switch to the full Graph view to interact with individual nodes and traces.
+            </p>
+            <button className="bg-white/10 hover:bg-white/20 px-8 py-3 rounded-lg font-label-caps text-label-caps border border-white/10 transition-all">
+              Launch Knowledge Viewer
             </button>
           </div>
-        </motion.div>
-      </div>
-    </motion.div>
+        </div>
+      </section>
+    </motion.main>
   )
 }

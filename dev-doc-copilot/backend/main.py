@@ -46,6 +46,11 @@ class IngestCodeRequest(BaseModel):
     cloneUrl: Optional[str] = None
     sessionId: Optional[str] = None
 
+class IngestUrlRequest(BaseModel):
+    project: str
+    url: str
+    sessionId: Optional[str] = None
+
 class ForgetRequest(BaseModel):
     project: str
     source: str
@@ -55,6 +60,9 @@ class ImproveRequest(BaseModel):
     project: str
     feedback: Optional[str] = None
     sessionIds: list[str] = []
+
+class SourcesRequest(BaseModel):
+    project: str
 
 # ------------------------------------------------------------------
 # HEALTH
@@ -85,13 +93,11 @@ async def chat(req: ChatRequest):
 @app.post("/api/ingest/docs")
 async def ingest_docs(
     project: str = Form(...),
-    urls: str = Form(""),
+    urls: list[str] = Form(default=[]),
     files: list[UploadFile] = File(default=[]),
     sessionId: Optional[str] = Form(None),
 ):
     try:
-        url_list = [u.strip() for u in urls.split("\n") if u.strip()]
-
         saved_files: list[Path] = []
         for f in files:
             dest = settings.UPLOAD_DIR / f.filename
@@ -100,7 +106,7 @@ async def ingest_docs(
                 await out.write(content)
             saved_files.append(dest)
 
-        result = await CogneeService.ingest_docs(project, url_list, saved_files, session_id=sessionId)
+        result = await CogneeService.ingest_docs(project, urls, saved_files, session_id=sessionId)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -121,6 +127,23 @@ async def ingest_code(req: IngestCodeRequest):
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=400, detail=f"Git clone failed: {e}")
     except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ------------------------------------------------------------------
+# INGEST — URL (fetch web page, extract text, ingest)
+# ------------------------------------------------------------------
+@app.post("/api/ingest/url")
+async def ingest_url(req: IngestUrlRequest):
+    try:
+        result = await CogneeService.ingest_url(
+            project=req.project,
+            url=req.url,
+            session_id=req.sessionId,
+        )
+        return result
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -148,6 +171,17 @@ async def memory_improve(req: ImproveRequest):
             session_ids=req.sessionIds if req.sessionIds else None,
         )
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ------------------------------------------------------------------
+# MEMORY — SOURCES (list ingested sources for a project)
+# ------------------------------------------------------------------
+@app.post("/api/memory/sources")
+async def memory_sources(req: SourcesRequest):
+    try:
+        result = await CogneeService.list_sources(req.project)
+        return {"sources": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

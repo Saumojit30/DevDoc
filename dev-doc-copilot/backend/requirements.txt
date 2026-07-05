@@ -3,6 +3,7 @@ uvicorn[standard]>=0.32.0
 python-dotenv>=1.0.0
 cognee[codegraph]>=1.2.0
 httpx>=0.27.0
+trafilatura>=2.0.0
 pydantic>=2.9.0
 python-multipart>=0.0.9
 aiofiles>=23.2.0

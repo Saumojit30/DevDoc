@@ -9,9 +9,7 @@ export interface Toast {
   variant?: "success" | "error" | "info"
 }
 
-type Action =
-  | { type: "ADD"; toast: Toast }
-  | { type: "REMOVE"; id: string }
+type Action = { type: "ADD"; toast: Toast } | { type: "REMOVE"; id: string }
 
 function reducer(state: Toast[], action: Action): Toast[] {
   switch (action.type) {
@@ -21,9 +19,7 @@ function reducer(state: Toast[], action: Action): Toast[] {
   }
 }
 
-function genId() {
-  return `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-}
+function genId() { return `toast_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` }
 
 const ToastContext = createContext<{
   toasts: Toast[]
@@ -33,17 +29,12 @@ const ToastContext = createContext<{
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, dispatch] = useReducer(reducer, [])
-
   const addToast = useCallback((t: Omit<Toast, "id">) => {
     const id = genId()
     dispatch({ type: "ADD", toast: { ...t, id } })
     setTimeout(() => dispatch({ type: "REMOVE", id }), 4000)
   }, [])
-
-  const dismiss = useCallback((id: string) => {
-    dispatch({ type: "REMOVE", id })
-  }, [])
-
+  const dismiss = useCallback((id: string) => dispatch({ type: "REMOVE", id }), [])
   return (
     <ToastContext.Provider value={{ toasts, toast: addToast, dismiss }}>
       {children}
@@ -51,6 +42,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useToast() {
-  return useContext(ToastContext)
-}
+export function useToast() { return useContext(ToastContext) }

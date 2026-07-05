@@ -24,3 +24,10 @@ uploads/
 
 # Editor
 .vscode/
+
+dev-docPRD.md
+docs/
+start
+start.ps1
+
+start.py

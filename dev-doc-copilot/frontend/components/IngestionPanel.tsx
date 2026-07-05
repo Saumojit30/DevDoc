@@ -1,192 +1,256 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { useDropzone } from "react-dropzone"
-import { Upload, Link, GitBranch, FileText, X, Loader2, CheckCircle, History } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { ingestDocs, ingestCode } from "@/lib/cognee"
+import { motion } from "framer-motion"
+import { useState, useRef } from "react"
+import { ingestDocs, ingestCode, ingestUrl } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
-interface IngestionPanelProps {
-  project: string
-}
-
-interface HistoryItem {
-  id: string
-  type: "docs" | "code"
-  label: string
-  time: Date
-}
-
-export default function IngestionPanel({ project }: IngestionPanelProps) {
-  const [urls, setUrls] = useState("")
-  const [files, setFiles] = useState<File[]>([])
-  const [repoPath, setRepoPath] = useState("")
-  const [cloneUrl, setCloneUrl] = useState("")
-  const [ingesting, setIngesting] = useState(false)
-  const [history, setHistory] = useState<HistoryItem[]>([])
+export default function IngestionPanel({ projectName }: { projectName: string }) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [repoUrl, setRepoUrl] = useState("")
+  const [showRepoInput, setShowRepoInput] = useState(false)
+  const [docUrl, setDocUrl] = useState("")
+  const [showDocUrlInput, setShowDocUrlInput] = useState(false)
+  const [fetching, setFetching] = useState(false)
+  const [logs, setLogs] = useState<string[]>([
+    "[14:20:11] Initializing parser engine...",
+    "[14:20:13] Scanning local buffer for .md extensions",
+    "[14:20:15] Parsing auth_service.ts...",
+    "[14:20:18] Identifying vector dependencies in /src/middleware/logger.v2",
+  ])
+  const [uploading, setUploading] = useState(false)
+  const [cloning, setCloning] = useState(false)
   const { toast } = useToast()
 
-  const onDrop = useCallback((accepted: File[]) => {
-    setFiles(prev => [...prev, ...accepted])
-  }, [])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "text/*": [".md", ".txt", ".json", ".yaml", ".yml"], "application/pdf": [".pdf"] },
-  })
-
-  const handleDocIngest = async () => {
-    setIngesting(true)
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setUploading(true)
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Uploading ${files.length} file(s)...`])
     try {
-      const urlList = urls.split("\n").filter(Boolean)
-      await ingestDocs(project, urlList, files)
-      toast({ title: "Docs ingested", description: `${urlList.length} URLs and ${files.length} files processed.`, variant: "success" })
-      setHistory(prev => [{ id: Date.now().toString(), type: "docs", label: `${urlList.length} URLs, ${files.length} files`, time: new Date() }, ...prev])
-      setUrls("")
-      setFiles([])
-    } catch (e: any) {
-      toast({ title: "Ingest failed", description: e.message, variant: "error" })
+      await ingestDocs(projectName, [], Array.from(files))
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✓ ${files.length} file(s) ingested successfully`])
+      toast({ title: "Ingestion complete", description: `${files.length} file(s) processed`, variant: "success" })
+    } catch (err: any) {
+      const msg = err?.message || "Upload failed"
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✗ ${msg}`])
+      toast({ title: "Ingestion failed", description: msg, variant: "error" })
     } finally {
-      setIngesting(false)
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
-  const handleCodeIngest = async () => {
-    setIngesting(true)
+  const handleRepoClone = async () => {
+    if (!repoUrl.trim()) return
+    setCloning(true)
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Cloning ${repoUrl}...`])
     try {
-      await ingestCode(project, repoPath || "sample-repo", cloneUrl || undefined)
-      toast({ title: "Code ingested", description: "Code pipeline completed.", variant: "success" })
-      setHistory(prev => [{ id: Date.now().toString(), type: "code", label: repoPath || cloneUrl || "sample-repo", time: new Date() }, ...prev])
-    } catch (e: any) {
-      toast({ title: "Code ingest failed", description: e.message, variant: "error" })
+      await ingestCode(projectName, repoUrl.trim())
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✓ Repository cloned and ingested`])
+      toast({ title: "Repo ingested", description: repoUrl.trim(), variant: "success" })
+      setRepoUrl("")
+      setShowRepoInput(false)
+    } catch (err: any) {
+      const msg = err?.message || "Clone failed"
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✗ ${msg}`])
+      toast({ title: "Clone failed", description: msg, variant: "error" })
     } finally {
-      setIngesting(false)
+      setCloning(false)
+    }
+  }
+
+  const handleDocFetch = async () => {
+    if (!docUrl.trim()) return
+    setFetching(true)
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Fetching ${docUrl}...`])
+    try {
+      await ingestUrl(projectName, docUrl.trim())
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✓ Page fetched and ingested`])
+      toast({ title: "URL ingested", description: docUrl.trim(), variant: "success" })
+      setDocUrl("")
+      setShowDocUrlInput(false)
+    } catch (err: any) {
+      const msg = err?.message || "Fetch failed"
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ✗ ${msg}`])
+      toast({ title: "Fetch failed", description: msg, variant: "error" })
+    } finally {
+      setFetching(false)
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Ingest Sources</h2>
-        <p className="text-sm text-muted-foreground mt-1">Add documentation and code to the knowledge graph.</p>
-      </div>
+    <motion.main
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.3 }}
+      className="md:ml-64 pt-24 pb-12 px-6 md:px-gutter min-h-screen gradient-mesh"
+    >
+      <div className="max-w-[880px] mx-auto">
+        <header className="mb-12">
+          <h1 className="font-display-lg text-primary mb-2">Ingest Workflow</h1>
+          <p className="text-on-surface/60 font-body-lg">Transform static documentation into a living knowledge graph.</p>
+        </header>
 
-      {/* Docs */}
-      <div className="card-elevated overflow-hidden">
-        <div className="px-5 py-4 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center">
-              <Link className="w-4 h-4 text-primary" />
+        <div className="flex items-center justify-between mb-16 relative">
+          <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2 z-0"></div>
+          <div className="relative z-10 flex flex-col items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center active-bloom">
+              <span className="material-symbols-outlined text-background text-lg font-bold">upload_file</span>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold">Documentation</h3>
-              <p className="text-xs text-muted-foreground">Markdown, PDF, OpenAPI specs</p>
+            <span className="font-label-caps text-[10px] text-primary">01 Upload Docs</span>
+          </div>
+          <div className="relative z-10 flex flex-col items-center gap-3 step-inactive">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high border border-white/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-on-surface/60 text-lg">art_track</span>
             </div>
+            <span className="font-label-caps text-[10px] text-on-surface/60">02 Connect Repos</span>
+          </div>
+          <div className="relative z-10 flex flex-col items-center gap-3 step-inactive">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high border border-white/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-on-surface/60 text-lg">account_tree</span>
+            </div>
+            <span className="font-label-caps text-[10px] text-on-surface/60">03 Map Graph</span>
           </div>
         </div>
-        <div className="px-5 py-4 space-y-4">
-          <div className="space-y-1.5">
-            <label className="label text-xs">URLs</label>
-            <textarea
-              value={urls}
-              onChange={e => setUrls(e.target.value)}
-              placeholder="Paste URLs, one per line..."
-              className="textarea h-20 text-xs"
-            />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.md,.txt,.js,.ts,.py,.json,.yaml,.yml,.toml,.rs,.go,.java"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+
+        <div
+          className="glass-panel p-12 rounded-xl flex flex-col items-center text-center border-dashed border-2 border-primary/20 hover:border-primary/40 transition-all cursor-pointer group"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="w-20 h-20 mb-6 rounded-full bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <span className="material-symbols-outlined text-4xl text-primary">cloud_upload</span>
           </div>
-          <div className="space-y-1.5">
-            <label className="label text-xs">Files</label>
-            <div
-              {...getRootProps()}
-              className={cn(
-                "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
-                isDragActive
-                  ? "border-primary bg-primary-50 scale-[1.02]"
-                  : "border-input hover:border-primary/40 hover:bg-muted/30"
-              )}
-            >
-              <input {...getInputProps()} />
-              <Upload className={cn("w-6 h-6 mx-auto mb-2 transition-colors", isDragActive ? "text-primary" : "text-muted-foreground")} />
-              <p className="text-sm text-muted-foreground">Drop files or click to upload</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">.md, .txt, .json, .yaml, .pdf</p>
-            </div>
-            {files.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {files.map((f, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border bg-card">
-                    <FileText className="w-3 h-3" />
-                    <span className="max-w-[120px] truncate">{f.name}</span>
-                    <span className="text-muted-foreground/60">({(f.size / 1024).toFixed(0)}KB)</span>
-                    <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                      <X className="w-3 h-3 text-muted-foreground hover:text-destructive transition-colors" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <button onClick={handleDocIngest} disabled={ingesting || (!urls.trim() && files.length === 0)} className="btn-primary w-full h-10">
-            {ingesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-            Ingest Documentation
+          <h2 className="font-headline-lg text-on-surface mb-2">Drop your documentation here</h2>
+          <p className="text-on-surface/40 font-code-sm mb-8">Supports PDF, Markdown, and TXT (Max 50MB)</p>
+          <button
+            className="px-8 py-3 bg-primary text-background font-label-caps rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
+            disabled={uploading}
+            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+          >
+            {uploading ? "Uploading..." : "Select Files"}
           </button>
         </div>
-      </div>
 
-      {/* Code */}
-      <div className="card-elevated overflow-hidden">
-        <div className="px-5 py-4 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-accent-50 flex items-center justify-center">
-              <GitBranch className="w-4 h-4 text-accent" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          <div
+            className="glass-panel p-6 rounded-xl group hover:border-primary/30 transition-all cursor-pointer"
+            onClick={() => setShowRepoInput(true)}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="material-symbols-outlined text-primary text-3xl">terminal</span>
+              <span className="material-symbols-outlined text-on-surface/20 group-hover:text-primary transition-colors">arrow_forward</span>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold">Code Repository</h3>
-              <p className="text-xs text-muted-foreground">Python, TypeScript, Go repos</p>
+            <h3 className="font-headline-md text-on-surface mb-2">GitHub Integration</h3>
+            <p className="text-on-surface/40 text-sm">Directly sync documentation from your GitHub repositories and wikis.</p>
+          </div>
+          <div
+            className="glass-panel p-6 rounded-xl group hover:border-secondary/30 transition-all cursor-pointer"
+            onClick={() => setShowRepoInput(true)}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="material-symbols-outlined text-secondary text-3xl">webhook</span>
+              <span className="material-symbols-outlined text-on-surface/20 group-hover:text-secondary transition-colors">arrow_forward</span>
             </div>
+            <h3 className="font-headline-md text-on-surface mb-2">GitLab Support</h3>
+            <p className="text-on-surface/40 text-sm">Import markdown files from private GitLab projects with OAuth2.</p>
           </div>
         </div>
-        <div className="px-5 py-4 space-y-3">
-          <div className="space-y-1.5">
-            <label className="label text-xs">Local path</label>
-            <input value={repoPath} onChange={e => setRepoPath(e.target.value)} placeholder="./sample-repo" className="input text-xs" />
-          </div>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or</span></div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="label text-xs">Git clone URL</label>
-            <input value={cloneUrl} onChange={e => setCloneUrl(e.target.value)} placeholder="https://github.com/user/repo.git" className="input text-xs" />
-          </div>
-          <button onClick={handleCodeIngest} disabled={ingesting} className="btn-outline w-full h-10">
-            {ingesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <GitBranch className="w-4 h-4 mr-2" />}
-            Ingest Code
+
+        <div className="flex justify-center mt-4">
+          <button
+            className="flex items-center gap-2 text-on-surface/40 hover:text-accent transition-colors font-code-sm text-xs group"
+            onClick={() => setShowDocUrlInput(true)}
+          >
+            <span className="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">language</span>
+            Fetch documentation URL
           </button>
         </div>
-      </div>
 
-      {/* History */}
-      {history.length > 0 && (
-        <div className="card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <History className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recent</span>
+        {showRepoInput && (
+          <div className="mt-6 glass-panel p-4 rounded-xl border-primary/30">
+            <div className="flex gap-4">
+              <input
+                className="flex-1 bg-surface-container-low border border-white/10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface/20"
+                placeholder="Enter repo URL or local path..."
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleRepoClone() }}
+              />
+              <button
+                className="px-6 py-2.5 bg-primary text-on-primary font-label-caps text-label-caps rounded-lg hover:brightness-110 transition-all disabled:opacity-50 whitespace-nowrap"
+                disabled={cloning || !repoUrl.trim()}
+                onClick={handleRepoClone}
+              >
+                {cloning ? "Cloning..." : "Clone & Ingest"}
+              </button>
+              <button
+                className="px-3 py-2.5 text-on-surface/40 hover:text-on-surface transition-colors"
+                onClick={() => { setShowRepoInput(false); setRepoUrl("") }}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
           </div>
-          <div className="space-y-2">
-            {history.map(h => (
-              <div key={h.id} className="flex items-center gap-3 text-sm">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span className="text-xs font-medium">{h.type === "docs" ? "Docs" : "Code"}</span>
-                <span className="text-xs text-muted-foreground truncate">{h.label}</span>
-                <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
-                  {h.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
+        )}
+
+        {showDocUrlInput && (
+          <div className="mt-6 glass-panel p-4 rounded-xl border-accent/30">
+            <div className="flex gap-4">
+              <input
+                className="flex-1 bg-surface-container-low border border-white/10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-accent/50 transition-all placeholder:text-on-surface/20"
+                placeholder="https://docs.example.com/page"
+                value={docUrl}
+                onChange={(e) => setDocUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleDocFetch() }}
+              />
+              <button
+                className="px-6 py-2.5 bg-accent text-background font-label-caps text-label-caps rounded-lg hover:brightness-110 transition-all disabled:opacity-50 whitespace-nowrap"
+                disabled={fetching || !docUrl.trim()}
+                onClick={handleDocFetch}
+              >
+                {fetching ? "Fetching..." : "Fetch & Ingest"}
+              </button>
+              <button
+                className="px-3 py-2.5 text-on-surface/40 hover:text-on-surface transition-colors"
+                onClick={() => { setShowDocUrlInput(false); setDocUrl("") }}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-12 glass-panel p-6 rounded-xl border-primary/10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-primary active-bloom animate-pulse"></div>
+              <span className="font-code-sm text-xs text-primary uppercase tracking-widest">
+                {uploading || cloning || fetching ? "Processing..." : "Processing Node Queue"}
+              </span>
+            </div>
+          </div>
+          <div className="bg-surface-container-lowest/50 p-4 rounded-lg font-code-sm text-sm border border-white/5 h-32 overflow-y-auto custom-scrollbar">
+            {logs.map((log, i) => (
+              <div key={i} className="text-on-surface/60 mb-1 flex items-center gap-2">
+                <span className="text-primary/40 shrink-0">{log.match(/\[.*?\]/)?.[0]}</span>
+                {log.replace(/\[.*?\]\s*/, "")}
+                {i === logs.length - 1 && !uploading && !cloning && !fetching && <span className="terminal-cursor"></span>}
               </div>
             ))}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </motion.main>
   )
 }

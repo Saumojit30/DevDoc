@@ -1,105 +1,77 @@
 "use client"
 
-import { useState } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import rehypeHighlight from "rehype-highlight"
-import { Copy, Check, FileCode } from "lucide-react"
+import type { CogneeMessage } from "@/lib/api"
 
-function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
-  const [copied, setCopied] = useState(false)
-  const code = String(children || "").replace(/\n$/, "")
-  const lang = (className || "").replace("language-", "") || "text"
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <div className="my-3 rounded-xl border overflow-hidden bg-card">
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/50">
-        <div className="flex items-center gap-2">
-          <FileCode className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-mono text-muted-foreground">{lang}</span>
-        </div>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {copied ? (
-            <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copied</>
-          ) : (
-            <><Copy className="w-3.5 h-3.5" /> Copy</>
-          )}
-        </button>
-      </div>
-      <pre className={className}>
-        <code>{children}</code>
-      </pre>
-    </div>
-  )
+interface ChatMessageProps {
+  message: CogneeMessage
 }
 
-export default function ChatMessage({ content }: { content: string }) {
+export default function ChatMessage({ message }: ChatMessageProps) {
+  const isUser = message.role === "user"
+
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
-      components={{
-        p({ children }) {
-          return <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
-        },
-        ul({ children }) {
-          return <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>
-        },
-        ol({ children }) {
-          return <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>
-        },
-        blockquote({ children }) {
-          return (
-            <blockquote className="border-l-2 border-primary/30 pl-4 py-1 my-2 text-muted-foreground italic">
-              {children}
-            </blockquote>
-          )
-        },
-        code({ className, children, ...props }) {
-          const isInline = !className
-          if (isInline) {
-            return <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>
-          }
-          return <CodeBlock className={className}>{children}</CodeBlock>
-        },
-        a({ href, children }) {
-          return (
-            <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
-              {children}
-            </a>
-          )
-        },
-        table({ children }) {
-          return (
-            <div className="overflow-x-auto my-3 rounded-xl border">
-              <table className="w-full text-sm border-collapse">{children}</table>
+    <div className={`max-w-3xl mx-auto w-full ${isUser ? "" : ""}`}>
+      <div className="flex items-start gap-4">
+        {/* Avatar */}
+        <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 mt-1 ${
+          isUser
+            ? "bg-surface-variant"
+            : "bg-primary/20 border border-primary/30"
+        }`}>
+          <span className={`material-symbols-outlined text-sm ${
+            isUser ? "text-on-surface/60" : "text-primary"
+          } ${!isUser ? "font-variation-settings:'FILL' 1" : ""}`}>
+            {isUser ? "person" : "auto_awesome"}
+          </span>
+        </div>
+
+        <div className="flex-1 space-y-6">
+          {isUser ? (
+            <>
+              <h3 className="font-headline-md text-on-surface mb-2">{message.content}</h3>
+              <div className="flex gap-2">
+                <span className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label-caps uppercase tracking-widest border border-white/5">Local Context</span>
+                <span className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label-caps uppercase tracking-widest border border-white/5">V1.2.4</span>
+              </div>
+            </>
+          ) : (
+            <div className="ai-message-glow glass-panel p-6 rounded-xl relative overflow-hidden">
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-secondary/10 blur-[60px]"></div>
+              <p className="text-body-lg leading-relaxed text-on-surface/90 mb-4">{message.content}</p>
+              {message.sources && message.sources.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5 mt-4">
+                  <span className="font-label-caps text-[10px] text-on-surface/40 uppercase py-1">Sources:</span>
+                  {message.sources.map((s) => (
+                    <div key={s.id} className="flex items-center gap-1.5 px-2 py-1 bg-surface-container-high rounded border border-white/10 hover:border-primary/40 transition-colors cursor-pointer group">
+                      <span className={`material-symbols-outlined text-xs ${
+                        s.type === "code" ? "text-secondary" : s.type === "doc" ? "text-primary" : "text-tertiary"
+                      }`}>
+                        {s.type === "code" ? "code" : s.type === "doc" ? "description" : "hub"}
+                      </span>
+                      <span className="font-code-sm text-[11px] text-on-surface-variant">{s.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Action bar */}
+              <div className="flex items-center gap-4 px-2 mt-4">
+                <button className="flex items-center gap-1 text-on-surface/40 hover:text-primary transition-colors text-xs font-label-caps">
+                  <span className="material-symbols-outlined text-sm">thumb_up</span>
+                  Helpful
+                </button>
+                <button className="flex items-center gap-1 text-on-surface/40 hover:text-error transition-colors text-xs font-label-caps">
+                  <span className="material-symbols-outlined text-sm">thumb_down</span>
+                  Inaccurate
+                </button>
+                <button className="flex items-center gap-1 text-on-surface/40 hover:text-on-surface transition-colors text-xs font-label-caps">
+                  <span className="material-symbols-outlined text-sm">refresh</span>
+                  Regenerate
+                </button>
+              </div>
             </div>
-          )
-        },
-        th({ children }) {
-          return <th className="border-b border-border px-4 py-2.5 bg-muted/50 font-medium text-left text-xs uppercase tracking-wider text-muted-foreground">{children}</th>
-        },
-        td({ children }) {
-          return <td className="border-b border-border px-4 py-2.5">{children}</td>
-        },
-        img({ src, alt }) {
-          return <img src={src} alt={alt} className="max-w-full rounded-lg my-2" loading="lazy" />
-        },
-        hr() {
-          return <hr className="my-4 border-border" />
-        },
-      }}
-    >
-      {content}
-    </ReactMarkdown>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

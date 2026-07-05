@@ -27,26 +27,24 @@ async def get_graph_data(req: GraphDataRequest):
         graph_engine = await get_graph_engine()
         nodes, edges = await graph_engine.get_graph_data()
 
-        # Filter to project-scoped if needed (Cognee handles this via dataset)
-        # Return as serializable dicts
         node_list = []
         for n in nodes:
-            d = dict(n) if hasattr(n, "__dict__") else n
+            node_id, props = n if isinstance(n, tuple) else (str(n), {})
             node_list.append({
-                "id": str(d.get("id", d.get("node_id", hash(str(d))))),
-                "label": d.get("name", d.get("label", d.get("type", "Node"))),
-                "type": d.get("type", d.get("node_type", "unknown")),
-                "source": d.get("source", "")[:200],
+                "id": str(node_id),
+                "label": props.get("name", props.get("label", props.get("type", "Node"))),
+                "type": props.get("type", props.get("node_type", "unknown")),
+                "source": str(props.get("source", ""))[:200],
             })
 
         edge_list = []
         for e in edges:
-            d = dict(e) if hasattr(e, "__dict__") else e
+            source_id, target_id, rel_name, props = e if isinstance(e, tuple) else (str(e), "", "", {})
             edge_list.append({
-                "source": str(d.get("source_id", d.get("source", ""))),
-                "target": str(d.get("target_id", d.get("target", ""))),
-                "relation": d.get("relation", d.get("label", "related")),
-                "weight": d.get("weight", 1.0),
+                "source": str(source_id),
+                "target": str(target_id),
+                "relation": rel_name or props.get("relation", "related"),
+                "weight": props.get("weight", 1.0),
             })
 
         return {
@@ -65,11 +63,10 @@ async def get_graph_data(req: GraphDataRequest):
 async def get_graph_inventory(req: GraphInventoryRequest):
     """
     Returns schema inventory: type counts, samples, and relationship distributions.
-    Useful for dashboard summaries and color coding.
     """
     try:
         inventory = await cognee.get_schema_inventory(
-            dataset=None,  # TODO: scope by dataset if API supports
+            dataset=None,
             samples_per_type=req.samples_per_type,
             sort="count",
         )
