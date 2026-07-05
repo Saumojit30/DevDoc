@@ -1,0 +1,70 @@
+{
+  "name": "dev-doc-copilot-vscode",
+  "displayName": "Dev-Doc Copilot",
+  "description": "Cognee-powered knowledge graph copilot inside VS Code",
+  "version": "1.0.0",
+  "publisher": "your-team",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Snippets",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:devDocCopilot.open"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "devDocCopilot.open",
+        "title": "Open Dev-Doc Copilot",
+        "category": "Dev-Doc Copilot"
+      },
+      {
+        "command": "devDocCopilot.querySelection",
+        "title": "Query Copilot about Selection",
+        "category": "Dev-Doc Copilot"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "devDocCopilot.querySelection",
+          "when": "editorHasSelection",
+          "group": "9_cutcopypaste@5"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Dev-Doc Copilot",
+      "properties": {
+        "devDocCopilot.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the Dev-Doc Copilot FastAPI backend"
+        },
+        "devDocCopilot.project": {
+          "type": "string",
+          "default": "vscode-project",
+          "description": "Default project name for the knowledge graph"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

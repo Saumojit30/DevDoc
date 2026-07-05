@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Environment / Secrets
+.env
+
+# Build artifacts
+.next/
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Stitch design exports (tracked separately)
+stitch_devdoc_developer_cockpit/
+
+# Runtime data
+uploads/
+.cognee_system/
+.data_storage/
+
+# Editor
+.vscode/
