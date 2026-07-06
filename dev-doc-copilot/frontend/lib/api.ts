@@ -13,6 +13,32 @@ export interface SourceNode {
   line?: number
 }
 
+export interface GraphNode {
+  id: string
+  label: string
+  type: string
+  source: string
+  properties: Record<string, any>
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  relation: string
+  weight: number
+  properties: Record<string, any>
+}
+
+export interface GraphData {
+  dataset: string
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  metrics: {
+    num_nodes: number
+    num_edges: number
+  }
+}
+
 export interface Project {
   id: string
   name: string
@@ -117,7 +143,7 @@ export async function improveMemory(
   if (!res.ok) throw new Error(await res.text())
 }
 
-export async function getGraphData(project: string): Promise<{ nodes: any[]; edges: any[]; metrics: any }> {
+export async function getGraphData(project: string): Promise<GraphData> {
   const res = await fetch("/api/graph/data", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -135,6 +161,23 @@ export async function getGraphMetrics(project: string): Promise<any> {
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
+}
+
+export async function downloadGraph(project: string): Promise<Blob> {
+  const res = await fetch(`/api/graph/visualize?project=${encodeURIComponent(project)}`)
+  if (!res.ok) throw new Error(await res.text())
+  return res.blob()
+}
+
+export async function getGraphVisualizationHtml(project: string): Promise<string> {
+  const res = await fetch("/api/graph/visualize-html", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  const data = await res.json()
+  return data.html
 }
 
 export async function getHealth(): Promise<{ status: string; version: string }> {

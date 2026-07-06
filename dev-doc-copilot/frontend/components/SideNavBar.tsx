@@ -1,5 +1,7 @@
 "use client"
 
+import { useToast } from "@/hooks/use-toast"
+
 export type TabId = "dashboard" | "chat" | "ingest" | "graph" | "memory"
 
 interface SideNavBarProps {
@@ -7,6 +9,9 @@ interface SideNavBarProps {
   onTabChange: (tab: TabId) => void
   projectName: string
   onProjectChange: (name: string) => void
+  projects: string[]
+  onCreateProject: () => void
+  onSwitchProject: (name: string) => void
 }
 
 const tabs: { id: TabId; label: string; icon: string }[] = [
@@ -17,11 +22,12 @@ const tabs: { id: TabId; label: string; icon: string }[] = [
   { id: "memory", label: "Memory Manager", icon: "memory" },
 ]
 
-export default function SideNavBar({ activeTab, onTabChange, projectName, onProjectChange }: SideNavBarProps) {
+export default function SideNavBar({ activeTab, onTabChange, projectName, onProjectChange, projects, onCreateProject, onSwitchProject }: SideNavBarProps) {
+  const { toast } = useToast()
   return (
     <>
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface/80 backdrop-blur-xl border-t border-white/10 flex justify-around items-center h-16 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface/80 backdrop-blur-xl border-t border-overlay-10 flex justify-around items-center h-16 z-50">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -37,10 +43,10 @@ export default function SideNavBar({ activeTab, onTabChange, projectName, onProj
       </nav>
 
       {/* Desktop sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 hidden md:flex flex-col bg-surface/65 backdrop-blur-[40px] border-r border-white/10 z-40 py-margin-safe transition-all duration-200">
+      <aside className="fixed left-0 top-0 h-full w-64 hidden md:flex flex-col bg-surface/65 backdrop-blur-[40px] border-r border-overlay-10 z-40 py-margin-safe transition-all duration-200">
         {/* Brand section */}
-        <div className="px-6 mb-10 mt-16">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="px-6 mb-6 mt-16">
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>dataset</span>
             </div>
@@ -54,9 +60,31 @@ export default function SideNavBar({ activeTab, onTabChange, projectName, onProj
               <p className="font-code-sm text-code-sm text-on-surface/40">Active Context</p>
             </div>
           </div>
-          <button className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 font-label-caps text-label-caps">
+
+          {/* Project list */}
+          <div className="space-y-1 mb-4">
+            {projects.map(p => (
+              <button
+                key={p}
+                onClick={() => onSwitchProject(p)}
+                className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all duration-150 ${
+                  p === projectName
+                    ? "bg-primary/10 text-primary font-bold"
+                    : "text-on-surface/40 hover:bg-overlay-5 hover:text-on-surface"
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm mr-2 align-middle" style={{ fontVariationSettings: "'FILL' 1" }}>folder</span>
+                {p}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={onCreateProject}
+            className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 font-label-caps text-label-caps"
+          >
             <span className="material-symbols-outlined text-lg">add</span>
-            New Node
+            New Project
           </button>
         </div>
 
@@ -72,7 +100,7 @@ export default function SideNavBar({ activeTab, onTabChange, projectName, onProj
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200 font-code-sm text-code-sm ${
                 activeTab === tab.id
                   ? "text-primary font-bold bg-primary/10 active-glow"
-                  : "text-on-surface/40 hover:bg-white/5 hover:text-on-surface"
+                  : "text-on-surface/40 hover:bg-overlay-5 hover:text-on-surface"
               }`}
             >
               <span className={`material-symbols-outlined text-lg ${activeTab === tab.id ? "text-primary" : ""}`}>{tab.icon}</span>
@@ -82,17 +110,20 @@ export default function SideNavBar({ activeTab, onTabChange, projectName, onProj
         </nav>
 
         {/* Footer */}
-        <div className="px-4 pt-4 mt-auto border-t border-white/5 space-y-1">
+        <div className="px-4 pt-4 mt-auto border-t border-overlay-5 space-y-1">
           <button
             onClick={() => onTabChange("memory")}
             className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-all duration-200 font-code-sm text-code-sm ${
-              activeTab === "memory" ? "text-primary font-bold bg-primary/10" : "text-on-surface/40 hover:bg-white/5 hover:text-on-surface"
+              activeTab === "memory" ? "text-primary font-bold bg-primary/10" : "text-on-surface/40 hover:bg-overlay-5 hover:text-on-surface"
             }`}
           >
             <span className="material-symbols-outlined text-lg">settings</span>
             Settings
           </button>
-          <button className="flex items-center w-full px-3 py-2 rounded-lg transition-all duration-200 font-code-sm text-code-sm text-on-surface/40 hover:bg-white/5 hover:text-on-surface">
+          <button
+            onClick={() => toast({ title: "Dev-Doc Support", description: "For help, visit github.com/anomalyco/opencode or check the docs at opencode.ai" })}
+            className="flex items-center w-full px-3 py-2 rounded-lg transition-all duration-200 font-code-sm text-code-sm text-on-surface/40 hover:bg-overlay-5 hover:text-on-surface"
+          >
             <span className="material-symbols-outlined text-lg mr-3">help</span>
             Support
           </button>

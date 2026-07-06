@@ -16,7 +16,10 @@ class Settings:
     CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
-    CODE_EXTENSIONS: list[str] = os.getenv("CODE_EXTENSIONS", ".py,.js,.ts,.jsx,.tsx,.java,.go,.rs,.rb,.php,.c,.cpp,.h,.hpp,.cs,.swift,.kt,.scala").split(",")
+    CODE_EXTENSIONS: list[str] = os.getenv("CODE_EXTENSIONS", ".py,.js,.ts,.jsx,.tsx,.java,.go,.rs,.rb,.php,.c,.cpp,.h,.hpp,.cs,.swift,.kt,.scala,.json,.md,.sh,.yaml,.yml,.toml").split(",")
+    CODE_INGEST_BATCH_SIZE: int = int(os.getenv("CODE_INGEST_BATCH_SIZE", "100"))
+    MAX_CODE_FILES: int = int(os.getenv("MAX_CODE_FILES", "600"))
+    MAX_CODE_FILE_BYTES: int = int(os.getenv("MAX_CODE_FILE_BYTES", "1048576"))
 
 settings = Settings()
 settings.DATA_DIR.mkdir(parents=True, exist_ok=True)

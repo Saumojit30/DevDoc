@@ -1,26 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import ChatMessage from "./ChatMessage"
 import type { CogneeMessage, SourceNode } from "@/lib/api"
 import { chatQuery } from "@/lib/api"
+import type { TabId } from "./SideNavBar"
 
-export default function ChatInterface({ projectName }: { projectName: string }) {
+function generateSessionId(): string {
+  return "session_" + crypto.randomUUID()
+}
+
+export default function ChatInterface({ projectName, onTabChange }: { projectName: string; onTabChange?: (tab: TabId) => void }) {
+  const [sessionId, setSessionId] = useState<string>("")
   const [messages, setMessages] = useState<CogneeMessage[]>([])
   const [contextSources, setContextSources] = useState<SourceNode[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let sid = sessionStorage.getItem("devdoc_session_id")
+    if (!sid) {
+      sid = generateSessionId()
+      sessionStorage.setItem("devdoc_session_id", sid)
+    }
+    setSessionId(sid)
+  }, [])
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
     const q = input.trim()
     setInput("")
-    const userMsg: CogneeMessage = { role: "user", content: q }
+    const userMsg: CogneeMessage = { role: "user", content: q, session_id: sessionId }
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
     try {
-      const res = await chatQuery(projectName, q)
+      const res = await chatQuery(projectName, q, false, sessionId)
       setMessages(prev => [...prev, res])
       if (res.sources && res.sources.length > 0) {
         setContextSources(prev => {
@@ -100,11 +116,21 @@ export default function ChatInterface({ projectName }: { projectName: string }) 
                 onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px" }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend() } }}
               />
-              <div className="absolute left-3 top-3.5 flex items-center justify-center w-8 h-8 rounded-lg text-on-surface/40 hover:text-primary hover:bg-primary/10 cursor-pointer transition-all">
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => {
+                const files = e.target.files
+                if (files?.length) {
+                  setMessages(prev => [...prev, { role: "assistant", content: `📎 ${files.length} file(s) attached. Use the Ingest panel to process them.` }])
+                  e.target.value = ""
+                }
+              }} />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute left-3 top-3.5 flex items-center justify-center w-8 h-8 rounded-lg text-on-surface/40 hover:text-primary hover:bg-primary/10 cursor-pointer transition-all"
+              >
                 <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 300" }}>attachment</span>
               </div>
               <div className="absolute right-3 top-2.5 flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded-md border border-white/5">
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-overlay-5 rounded-md border border-overlay-5">
                   <span className="material-symbols-outlined text-sm text-on-surface/40">language</span>
                   <span className="font-code-sm text-[10px] text-on-surface/40 uppercase">Search ON</span>
                 </div>
@@ -130,8 +156,8 @@ export default function ChatInterface({ projectName }: { projectName: string }) 
         </div>
       </section>
 
-      <section className="hidden lg:flex w-80 h-full glass-panel border-l border-white/10 flex-col">
-        <div className="p-6 border-b border-white/10">
+      <section className="hidden lg:flex w-80 h-full glass-panel border-l border-overlay-10 flex-col">
+        <div className="p-6 border-b border-overlay-10">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-headline-md text-on-surface text-sm uppercase tracking-widest opacity-60">Context Sources</h3>
             <span className="bg-secondary/20 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full">{contextSources.length} Sources</span>
@@ -143,7 +169,7 @@ export default function ChatInterface({ projectName }: { projectName: string }) 
               contextSources.map((src) => {
                 const style = getTypeStyle(src.type)
                 return (
-                  <div key={src.id} className="group relative bg-surface-container-low p-3 rounded-xl border border-white/5 hover:border-primary/40 transition-all cursor-pointer overflow-hidden">
+                  <div key={src.id} onClick={() => onTabChange?.("graph")} className="group relative bg-surface-container-low p-3 rounded-xl border border-overlay-5 hover:border-primary/40 transition-all cursor-pointer overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-2xl group-hover:bg-primary/10"></div>
                     <div className="flex items-center gap-3 mb-2">
                       <div className={`w-2 h-2 rounded-full ${style.dot} ${style.shadow}`}></div>

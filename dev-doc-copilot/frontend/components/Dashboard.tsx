@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { getGraphMetrics, getHealth } from "@/lib/api"
+import type { TabId } from "./SideNavBar"
 
-export default function Dashboard({ projectName }: { projectName: string }) {
+export default function Dashboard({ projectName, onTabChange }: { projectName: string; onTabChange?: (tab: TabId) => void }) {
   const [nodes, setNodes] = useState<number | null>(null)
   const [edges, setEdges] = useState<number | null>(null)
   const [health, setHealth] = useState<string>("checking")
@@ -53,14 +54,14 @@ export default function Dashboard({ projectName }: { projectName: string }) {
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-secondary/5 blur-[120px] rounded-full pointer-events-none -z-10"></div>
 
       <header className="max-w-container-max mx-auto mb-16">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-overlay-5 pb-10">
           <div>
             <h1 className="font-display-lg text-[64px] md:text-[84px] text-on-surface tracking-tighter leading-none mb-2">
               Dev-<span className="text-primary glow-text">Doc</span>
             </h1>
             <div className="flex items-center gap-4">
               <span className="font-headline-lg text-headline-lg text-on-surface/60">{projectName}</span>
-              <div className="h-6 w-[1px] bg-white/10"></div>
+              <div className="h-6 w-[1px] bg-overlay-10"></div>
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                 <span className={`w-2 h-2 rounded-full ${health === "Connected" ? "bg-primary animate-pulse" : "bg-error"} active-glow`}></span>
                 <span className="font-code-sm text-[12px] text-primary">{health}</span>
@@ -69,11 +70,17 @@ export default function Dashboard({ projectName }: { projectName: string }) {
             </div>
           </div>
           <div className="flex gap-4">
-            <button className="px-6 py-3 rounded-lg border border-white/10 hover:bg-white/5 text-on-surface font-label-caps text-label-caps flex items-center gap-2 transition-all group">
+            <button
+              onClick={() => onTabChange?.("graph")}
+              className="px-6 py-3 rounded-lg border border-overlay-10 hover:bg-overlay-5 text-on-surface font-label-caps text-label-caps flex items-center gap-2 transition-all group"
+            >
               <span className="material-symbols-outlined group-hover:rotate-12 transition-transform">explore</span>
               Explore Graph
             </button>
-            <button className="px-6 py-3 rounded-lg bg-primary text-on-primary-container font-label-caps text-label-caps flex items-center gap-2 hover:brightness-110 shadow-lg shadow-primary/10 transition-all">
+            <button
+              onClick={() => onTabChange?.("chat")}
+              className="px-6 py-3 rounded-lg bg-primary text-on-primary-container font-label-caps text-label-caps flex items-center gap-2 hover:brightness-110 shadow-lg shadow-primary/10 transition-all"
+            >
               <span className="material-symbols-outlined">add_box</span>
               New Query
             </button>
@@ -130,15 +137,47 @@ export default function Dashboard({ projectName }: { projectName: string }) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
           {[
-            { step: "01", title: "Ingest Docs", desc: "Upload your documentation, technical specifications, or markdown repositories to seed the knowledge graph." },
-            { step: "02", title: "Map Code", desc: "Connect your GitHub repositories to automatically map relationships between implementation and documentation." },
-            { step: "03", title: "Query Graph", desc: "Ask complex technical questions and receive synthesized answers backed by your internal knowledge base." },
+            {
+              step: "01",
+              title: "Ingest Docs",
+              desc: "Upload your documentation, technical specifications, or markdown repositories to seed the knowledge graph.",
+              imageDark: "/images/ingest_docs_dark.png",
+              imageLight: "/images/ingest_docs_light.png"
+            },
+            {
+              step: "02",
+              title: "Map Code",
+              desc: "Connect your GitHub repositories to automatically map relationships between implementation and documentation.",
+              imageDark: "/images/map_code_dark.png",
+              imageLight: "/images/map_code_light.png"
+            },
+            {
+              step: "03",
+              title: "Query Graph",
+              desc: "Ask complex technical questions and receive synthesized answers backed by your internal knowledge base.",
+              imageDark: "/images/query_graph_dark.png",
+              imageLight: "/images/query_graph_light.png"
+            },
           ].map((item) => (
             <div key={item.step} className="group cursor-pointer">
-              <div className="glass-card aspect-video rounded-xl mb-4 relative overflow-hidden">
-                <div className="w-full h-full bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent flex items-end p-6">
-                  <span className="font-display-lg text-display-lg text-white/5 select-none">{item.step}</span>
+              <div className="glass-card aspect-video rounded-xl mb-4 relative overflow-hidden flex items-center justify-center">
+                {/* Light Mode Image */}
+                <img
+                  src={item.imageLight}
+                  alt={item.title}
+                  className="w-full h-full object-cover block dark:hidden group-hover:scale-105 transition-transform duration-500"
+                />
+                {/* Dark Mode Image */}
+                <img
+                  src={item.imageDark}
+                  alt={item.title}
+                  className="w-full h-full object-cover hidden dark:block group-hover:scale-105 transition-transform duration-500"
+                />
+                {/* Visual gradient overlay for text readability and theme blending */}
+                <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent pointer-events-none"></div>
+                {/* Step indicator text */}
+                <div className="absolute inset-0 flex items-end p-6">
+                  <span className="font-display-lg text-display-lg text-on-surface/10 select-none leading-none">{item.step}</span>
                 </div>
               </div>
               <h4 className="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">{item.title}</h4>
@@ -158,7 +197,10 @@ export default function Dashboard({ projectName }: { projectName: string }) {
             <p className="font-body-lg text-body-lg text-on-surface/60 max-w-xl mx-auto mb-8">
               Experience your documentation as a living, breathing entity. Switch to the full Graph view to interact with individual nodes and traces.
             </p>
-            <button className="bg-white/10 hover:bg-white/20 px-8 py-3 rounded-lg font-label-caps text-label-caps border border-white/10 transition-all">
+            <button
+              onClick={() => onTabChange?.("graph")}
+              className="bg-overlay-10 hover:bg-overlay-20 px-8 py-3 rounded-lg font-label-caps text-label-caps border border-overlay-10 transition-all"
+            >
               Launch Knowledge Viewer
             </button>
           </div>

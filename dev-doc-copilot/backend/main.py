@@ -1,4 +1,4 @@
-import os
+﻿import os
 import subprocess
 import sys
 from pathlib import Path
@@ -64,6 +64,9 @@ class ImproveRequest(BaseModel):
 class SourcesRequest(BaseModel):
     project: str
 
+class ProjectRequest(BaseModel):
+    project: str
+
 # ------------------------------------------------------------------
 # HEALTH
 # ------------------------------------------------------------------
@@ -85,10 +88,11 @@ async def chat(req: ChatRequest):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
-# INGEST — DOCS
+# INGEST â€” DOCS
 # ------------------------------------------------------------------
 @app.post("/api/ingest/docs")
 async def ingest_docs(
@@ -109,10 +113,11 @@ async def ingest_docs(
         result = await CogneeService.ingest_docs(project, urls, saved_files, session_id=sessionId)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
-# INGEST — CODE
+# INGEST â€” CODE
 # ------------------------------------------------------------------
 @app.post("/api/ingest/code")
 async def ingest_code(req: IngestCodeRequest):
@@ -126,13 +131,18 @@ async def ingest_code(req: IngestCodeRequest):
         return result
     except subprocess.CalledProcessError as e:
         raise HTTPException(status_code=400, detail=f"Git clone failed: {e}")
+    except RuntimeError as e:
+        if "Git clone failed:" in str(e):
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
-# INGEST — URL (fetch web page, extract text, ingest)
+# INGEST â€” URL (fetch web page, extract text, ingest)
 # ------------------------------------------------------------------
 @app.post("/api/ingest/url")
 async def ingest_url(req: IngestUrlRequest):
@@ -146,10 +156,11 @@ async def ingest_url(req: IngestUrlRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
-# MEMORY — FORGET
+# MEMORY â€” FORGET
 # ------------------------------------------------------------------
 @app.post("/api/memory/forget")
 async def memory_forget(req: ForgetRequest):
@@ -157,10 +168,11 @@ async def memory_forget(req: ForgetRequest):
         result = await CogneeService.forget(req.project, req.source, session_id=req.sessionId)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
-# MEMORY — IMPROVE
+# MEMORY â€” IMPROVE
 # ------------------------------------------------------------------
 @app.post("/api/memory/improve")
 async def memory_improve(req: ImproveRequest):
@@ -172,10 +184,35 @@ async def memory_improve(req: ImproveRequest):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
-# MEMORY — SOURCES (list ingested sources for a project)
+# MEMORY â€” TRIPLET EMBEDDINGS (memify pipeline 1)
+# ------------------------------------------------------------------
+@app.post("/api/memory/triplet-embeddings")
+async def memory_triplet_embeddings(req: ProjectRequest):
+    try:
+        result = await CogneeService.create_triplet_embeddings(req.project)
+        return result
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
+
+# ------------------------------------------------------------------
+# MEMORY â€” CONSOLIDATE ENTITIES (memify pipeline 2)
+# ------------------------------------------------------------------
+@app.post("/api/memory/consolidate-entities")
+async def memory_consolidate_entities(req: ProjectRequest):
+    try:
+        result = await CogneeService.consolidate_entities(req.project)
+        return result
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
+
+# ------------------------------------------------------------------
+# MEMORY â€” SOURCES (list ingested sources for a project)
 # ------------------------------------------------------------------
 @app.post("/api/memory/sources")
 async def memory_sources(req: SourcesRequest):
@@ -183,7 +220,8 @@ async def memory_sources(req: SourcesRequest):
         result = await CogneeService.list_sources(req.project)
         return {"sources": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=repr(e))
 
 # ------------------------------------------------------------------
 # ENTRYPOINT
@@ -191,3 +229,4 @@ async def memory_sources(req: SourcesRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=True)
+

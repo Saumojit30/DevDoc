@@ -94,7 +94,7 @@ export default function IngestionPanel({ projectName }: { projectName: string })
         </header>
 
         <div className="flex items-center justify-between mb-16 relative">
-          <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2 z-0"></div>
+          <div className="absolute top-1/2 left-0 w-full h-[1px] bg-overlay-10 -translate-y-1/2 z-0"></div>
           <div className="relative z-10 flex flex-col items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center active-bloom">
               <span className="material-symbols-outlined text-background text-lg font-bold">upload_file</span>
@@ -102,13 +102,13 @@ export default function IngestionPanel({ projectName }: { projectName: string })
             <span className="font-label-caps text-[10px] text-primary">01 Upload Docs</span>
           </div>
           <div className="relative z-10 flex flex-col items-center gap-3 step-inactive">
-            <div className="w-10 h-10 rounded-full bg-surface-container-high border border-white/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high border border-overlay-20 flex items-center justify-center">
               <span className="material-symbols-outlined text-on-surface/60 text-lg">art_track</span>
             </div>
             <span className="font-label-caps text-[10px] text-on-surface/60">02 Connect Repos</span>
           </div>
           <div className="relative z-10 flex flex-col items-center gap-3 step-inactive">
-            <div className="w-10 h-10 rounded-full bg-surface-container-high border border-white/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high border border-overlay-20 flex items-center justify-center">
               <span className="material-symbols-outlined text-on-surface/60 text-lg">account_tree</span>
             </div>
             <span className="font-label-caps text-[10px] text-on-surface/60">03 Map Graph</span>
@@ -181,7 +181,7 @@ export default function IngestionPanel({ projectName }: { projectName: string })
           <div className="mt-6 glass-panel p-4 rounded-xl border-primary/30">
             <div className="flex gap-4">
               <input
-                className="flex-1 bg-surface-container-low border border-white/10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface/20"
+                className="flex-1 bg-surface-container-low border border-overlay-10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface/20"
                 placeholder="Enter repo URL or local path..."
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
@@ -208,7 +208,7 @@ export default function IngestionPanel({ projectName }: { projectName: string })
           <div className="mt-6 glass-panel p-4 rounded-xl border-accent/30">
             <div className="flex gap-4">
               <input
-                className="flex-1 bg-surface-container-low border border-white/10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-accent/50 transition-all placeholder:text-on-surface/20"
+                className="flex-1 bg-surface-container-low border border-overlay-10 rounded-lg px-4 py-2.5 font-code-sm text-code-sm focus:outline-none focus:border-accent/50 transition-all placeholder:text-on-surface/20"
                 placeholder="https://docs.example.com/page"
                 value={docUrl}
                 onChange={(e) => setDocUrl(e.target.value)}
@@ -240,7 +240,7 @@ export default function IngestionPanel({ projectName }: { projectName: string })
               </span>
             </div>
           </div>
-          <div className="bg-surface-container-lowest/50 p-4 rounded-lg font-code-sm text-sm border border-white/5 h-32 overflow-y-auto custom-scrollbar">
+          <div className="bg-surface-container-lowest/50 p-4 rounded-lg font-code-sm text-sm border border-overlay-5 h-32 overflow-y-auto custom-scrollbar">
             {logs.map((log, i) => (
               <div key={i} className="text-on-surface/60 mb-1 flex items-center gap-2">
                 <span className="text-primary/40 shrink-0">{log.match(/\[.*?\]/)?.[0]}</span>

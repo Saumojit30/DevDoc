@@ -8,6 +8,7 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user"
+  const content = typeof message.content === "string" ? message.content : String(message.content ?? "")
 
   return (
     <div className={`max-w-3xl mx-auto w-full ${isUser ? "" : ""}`}>
@@ -28,21 +29,21 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         <div className="flex-1 space-y-6">
           {isUser ? (
             <>
-              <h3 className="font-headline-md text-on-surface mb-2">{message.content}</h3>
+              <h3 className="font-headline-md text-on-surface mb-2">{content}</h3>
               <div className="flex gap-2">
-                <span className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label-caps uppercase tracking-widest border border-white/5">Local Context</span>
-                <span className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label-caps uppercase tracking-widest border border-white/5">V1.2.4</span>
+                <span className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label-caps uppercase tracking-widest border border-overlay-5">Local Context</span>
+                <span className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label-caps uppercase tracking-widest border border-overlay-5">V1.2.4</span>
               </div>
             </>
           ) : (
             <div className="ai-message-glow glass-panel p-6 rounded-xl relative overflow-hidden">
               <div className="absolute -top-24 -right-24 w-48 h-48 bg-secondary/10 blur-[60px]"></div>
-              <p className="text-body-lg leading-relaxed text-on-surface/90 mb-4">{message.content}</p>
+              <p className="text-body-lg leading-relaxed text-on-surface/90 mb-4">{content}</p>
               {message.sources && message.sources.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-4 border-t border-white/5 mt-4">
+                <div className="flex flex-wrap gap-2 pt-4 border-t border-overlay-5 mt-4">
                   <span className="font-label-caps text-[10px] text-on-surface/40 uppercase py-1">Sources:</span>
                   {message.sources.map((s) => (
-                    <div key={s.id} className="flex items-center gap-1.5 px-2 py-1 bg-surface-container-high rounded border border-white/10 hover:border-primary/40 transition-colors cursor-pointer group">
+                    <div key={s.id} className="flex items-center gap-1.5 px-2 py-1 bg-surface-container-high rounded border border-overlay-10 hover:border-primary/40 transition-colors cursor-pointer group">
                       <span className={`material-symbols-outlined text-xs ${
                         s.type === "code" ? "text-secondary" : s.type === "doc" ? "text-primary" : "text-tertiary"
                       }`}>
