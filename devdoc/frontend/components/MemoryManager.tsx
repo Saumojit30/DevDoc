@@ -125,10 +125,10 @@ export default function MemoryManager({ projectName, onTabChange }: { projectNam
 
       <div className="max-w-[1200px] mx-auto glass-panel rounded-xl border border-overlay-10 overflow-hidden">
         <div className="grid grid-cols-5 gap-4 px-6 py-4 bg-surface-container-high/50 border-b border-overlay-10 font-label-caps text-label-caps text-on-surface/40 uppercase tracking-widest text-[11px]">
-          <span>Name</span>
+          <span className="col-span-2">Name</span>
           <span>Type</span>
           <span>Status</span>
-          <span className="col-span-2"></span>
+          <span className="text-right">Actions</span>
         </div>
         {loading ? (
           <div className="px-6 py-8 text-center text-on-surface/40 font-code-sm">Loading sources...</div>

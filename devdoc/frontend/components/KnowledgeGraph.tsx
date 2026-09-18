@@ -460,6 +460,18 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         </div>
       </div>
 
+      <div className="absolute top-4 left-4 glass-panel border border-overlay-10 rounded-xl p-3 shadow-xl z-30 pointer-events-auto max-w-[200px]">
+        <span className="font-label-caps text-[10px] text-on-surface/40 uppercase tracking-wider block mb-2">Node Legend</span>
+        <div className="space-y-1.5 font-code-sm text-[11px]">
+          {Object.entries(TYPE_COLORS).filter(([k]) => k !== "default").slice(0, 6).map(([type, style]) => (
+            <div key={type} className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: style.fill }}></span>
+              <span className="text-on-surface/80 truncate">{type}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="absolute top-4 right-4 flex gap-4 pointer-events-none">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-background/50 backdrop-blur-sm border border-overlay-5 rounded-full">
           <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#4cd7f6]"></div>

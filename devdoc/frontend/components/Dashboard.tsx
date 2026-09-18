@@ -18,7 +18,7 @@ export default function Dashboard({ projectName, onTabChange }: { projectName: s
       try {
           const [metricsRes, healthRes] = await Promise.all([
           getGraphMetrics(projectName).catch(() => null),
-          getHealth().catch(() => ({ status: "error", version: "unknown" })),
+          getHealth().catch(() => ({ status: "error", version: "unknown", latencyMs: 0 })),
         ])
         if (cancelled) return
         if (metricsRes?.metrics) {
@@ -26,7 +26,7 @@ export default function Dashboard({ projectName, onTabChange }: { projectName: s
           setEdges(metricsRes.metrics.num_edges ?? null)
         }
         setHealth(healthRes.status === "ok" ? "Connected" : "Disconnected")
-        setLatency(healthRes.status === "ok" ? "24ms" : "--")
+        setLatency(healthRes.status === "ok" ? `${healthRes.latencyMs}ms` : "--")
       } catch {
         if (!cancelled) {
           setHealth("Disconnected")
@@ -38,7 +38,7 @@ export default function Dashboard({ projectName, onTabChange }: { projectName: s
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [projectName])
 
   const Skeleton = () => <div className="h-8 w-24 skeleton rounded" />
 
@@ -98,8 +98,8 @@ export default function Dashboard({ projectName, onTabChange }: { projectName: s
             {loading ? <Skeleton /> : <h3 className="font-display-lg text-display-lg text-on-surface glow-text">{nodes ?? "—"}</h3>}
           </div>
           <div className="flex items-center gap-2 text-primary font-code-sm text-[12px]">
-            <span className="material-symbols-outlined text-[14px]">trending_up</span>
-            <span>{loading ? "..." : nodes ? `+${Math.round(nodes * 0.1)} from last session` : "No data"}</span>
+            <span className="material-symbols-outlined text-[14px]">insights</span>
+            <span>{loading ? "..." : nodes !== null ? `${nodes} indexed graph entities` : "No data"}</span>
           </div>
         </div>
         <div className="glass-card p-8 rounded-xl flex flex-col justify-between h-48 relative overflow-hidden group">

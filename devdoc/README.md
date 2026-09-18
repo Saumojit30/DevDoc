@@ -1,6 +1,6 @@
-# Dev-Doc Copilot
+# DevDoc
 
-Dev-Doc Copilot is a project-scoped documentation and code assistant built around Cognee’s graph memory. It ingests docs, URLs, files, and code repositories into a knowledge graph, then answers questions with source-aware responses that connect documentation to implementation details.
+DevDoc is a project-scoped documentation and code assistant built around Cognee’s graph memory. It ingests docs, URLs, files, and code repositories into a knowledge graph, then answers questions with source-aware responses that connect documentation to implementation details.
 
 The repository contains three parts:
 
@@ -10,7 +10,7 @@ The repository contains three parts:
 
 ## Architecture
 
-Dev-Doc Copilot uses a simple three-layer architecture:
+DevDoc uses a simple three-layer architecture:
 
 1. The frontend collects user intent through a dashboard, chat UI, ingestion panel, graph view, and memory controls.
 2. The backend turns those actions into Cognee operations and normalizes responses for the web app and the VS Code extension.
@@ -76,12 +76,12 @@ The VS Code extension in `vscode-extension/` gives the same backend access insid
 ## Project layout
 
 ```text
-dev-doc-copilot/
+devdoc/
 ├── backend/          FastAPI service and Cognee integration
 ├── frontend/         Next.js app with chat, graph, and ingestion UI
 ├── vscode-extension/ VS Code extension for IDE integration
-├── scripts/          Setup and demo helpers
-└── docs/             Supporting project docs
+├── scripts/          Setup and starter CLI helpers
+└── tests/            Endpoint & integration tests
 ```
 
 ## Requirements
@@ -108,28 +108,29 @@ If you are using a different provider, update those values before starting the b
 
 ## Quick Start
 
-### Windows
+### Automated Setup
+
+#### Windows (PowerShell / Command Prompt)
 
 ```powershell
-cd c:\Users\Jit\Hackathons\Dev-doc
-.\start.ps1
+.\scripts\setup_and_run.bat
 ```
 
-If you want to run the apps manually instead of the helper script:
+#### Linux / macOS (Bash)
 
-```powershell
-cd c:\Users\Jit\Hackathons\Dev-doc
-python start.py
+```bash
+chmod +x scripts/setup_and_run.sh
+./scripts/setup_and_run.sh
 ```
 
-### Manual setup
+### Manual Setup
 
 Backend:
 
 ```powershell
 cd backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1   # On Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -142,7 +143,7 @@ npm install
 npm run dev
 ```
 
-Open the web app at `http://localhost:3000` and the backend at `http://localhost:8000`.
+Open the web app at `http://localhost:3000` and the backend Swagger docs at `http://localhost:8000/docs`.
 
 ## Main features
 
@@ -153,6 +154,17 @@ Open the web app at `http://localhost:3000` and the backend at `http://localhost
 - Memory manager for forgetting and improving sources
 - Improve and profile panels for project maintenance
 - VS Code extension for in-editor access to the same backend
+
+## How DevDoc Differs from Cursor & GitHub Copilot
+
+| Feature / Capability | GitHub Copilot / Cursor | DevDoc |
+| :--- | :--- | :--- |
+| **Primary Data Source** | Active editor buffers, open tabs, and local workspace code files. | **Unified Cross-Domain Graph:** Combines external web docs, PDFs, API specs, *and* AST code trees into one memory model. |
+| **Indexing Method** | **Vector Chunking (Naive RAG)** or Merkle-tree file hashing. Breaks code into text chunks by line counts. | **Deterministic AST Knowledge Graph:** Parses code into semantic nodes (Classes, Functions, Imports, Callers) with topological relationships. |
+| **External Doc Coupling** | Weak/Ephemeral. Requires `@Web` search or pasting doc URLs into chat manually per session. | **Permanent Cross-Document Linking:** Mentions of functions in `.pdf` or `.md` docs are explicitly linked as edges to the actual AST code nodes. |
+| **Data Scope & Persistence** | Scoped strictly to the currently open workspace window. | **Multi-Project Dataset Scoping:** Persistent, project-isolated knowledge base that survives across different sessions, machines, or non-editor environments. |
+| **Auditability & Visual Inspection** | Black-box context retrieval (you don't know *why* it picked a chunk). | **Interactive Graph Visualizer:** D3 force-directed inspection showing exact topological reasoning paths and node connections. |
+
 
 ## Backend API
 
@@ -185,9 +197,9 @@ npm run compile
 Then press `F5` in VS Code to launch the Extension Development Host.
 
 ## Scripts
-
+ 
 - `setup_all.sh` installs backend and frontend dependencies from the project root
-- `start.py` runs the sample ingestion and query flow against Cognee
+- `scripts/dev_doc_copilot_starter.py` runs the sample ingestion and query flow against Cognee via interactive CLI
 - `scripts/setup_and_run.sh` and `scripts/setup_and_run.bat` automate the starter workflow
 
 ## Tech stack

@@ -235,8 +235,15 @@ class CogneeService:
         dest = settings.UPLOAD_DIR / filename
         dest.write_text(text, encoding="utf-8")
 
-        await _remember_in_batches([str(dest)], _dataset_name(project), session_id=session_id)
-        await _tag_new_graph_nodes(_dataset_name(project))
+        try:
+            await _remember_in_batches([str(dest)], _dataset_name(project), session_id=session_id)
+            await _tag_new_graph_nodes(_dataset_name(project))
+        finally:
+            if dest.exists():
+                try:
+                    dest.unlink()
+                except OSError:
+                    pass
 
         return {
             "status": "ok",
@@ -321,7 +328,12 @@ class CogneeService:
                 **stats,
             }
 
-        await _remember_in_batches(code_files, ds, session_id=session_id)
+        from cognee.api.v1.cognify.code_graph_pipeline import run_code_graph_pipeline
+
+        await run_code_graph_pipeline(
+            repo_path=str(scan_path),
+            dataset_name=ds,
+        )
         await _tag_new_graph_nodes(ds)
 
         return {
@@ -398,7 +410,7 @@ class CogneeService:
     async def _call_llm(cls, question: str, context: str) -> str:
         import httpx
 
-        model = settings.LLM_MODEL
+        model = settings.LLM_MODEL or "gemini-2.5-flash"
         if model.startswith("openai/"):
             model = model[len("openai/"):]
 
@@ -410,13 +422,23 @@ class CogneeService:
             f"Context:\n{context}"
         )
 
+        if settings.LLM_ENDPOINT:
+            base_endpoint = settings.LLM_ENDPOINT.rstrip("/")
+            endpoint = base_endpoint if base_endpoint.endswith("/chat/completions") else f"{base_endpoint}/chat/completions"
+        elif settings.GCP_PROJECT_ID:
+            loc = settings.GCP_LOCATION or "us-central1"
+            endpoint = f"https://{loc}-aiplatform.googleapis.com/v1beta1/projects/{settings.GCP_PROJECT_ID}/locations/{loc}/endpoints/openapi/chat/completions"
+        else:
+            endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+        headers = {"Content-Type": "application/json"}
+        if settings.LLM_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.LLM_API_KEY}"
+
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
-                f"{settings.LLM_ENDPOINT.rstrip('/')}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.LLM_API_KEY}",
-                    "Content-Type": "application/json",
-                },
+                endpoint,
+                headers=headers,
                 json={
                     "model": model,
                     "messages": [

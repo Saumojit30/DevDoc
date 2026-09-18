@@ -1,4 +1,4 @@
-﻿import os
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -88,11 +88,10 @@ async def chat(req: ChatRequest):
         )
         return result
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# INGEST â€” DOCS
+# INGEST — DOCS
 # ------------------------------------------------------------------
 @app.post("/api/ingest/docs")
 async def ingest_docs(
@@ -113,11 +112,10 @@ async def ingest_docs(
         result = await CogneeService.ingest_docs(project, urls, saved_files, session_id=sessionId)
         return result
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# INGEST â€” CODE
+# INGEST — CODE
 # ------------------------------------------------------------------
 @app.post("/api/ingest/code")
 async def ingest_code(req: IngestCodeRequest):
@@ -138,11 +136,10 @@ async def ingest_code(req: IngestCodeRequest):
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# INGEST â€” URL (fetch web page, extract text, ingest)
+# INGEST — URL (fetch web page, extract text, ingest)
 # ------------------------------------------------------------------
 @app.post("/api/ingest/url")
 async def ingest_url(req: IngestUrlRequest):
@@ -156,20 +153,24 @@ async def ingest_url(req: IngestUrlRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# MEMORY â€” FORGET
+# MEMORY — FORGET
 # ------------------------------------------------------------------
 @app.post("/api/memory/forget")
 async def memory_forget(req: ForgetRequest):
     try:
         result = await CogneeService.forget(req.project, req.source, session_id=req.sessionId)
+        if result.get("status") == "not_found":
+            raise HTTPException(status_code=404, detail=f"Source '{req.source}' not found in project dataset.")
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("error", "Memory forget operation failed."))
         return result
+    except HTTPException:
+        raise
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
 # MEMORY â€” IMPROVE
@@ -184,11 +185,10 @@ async def memory_improve(req: ImproveRequest):
         )
         return result
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# MEMORY â€” TRIPLET EMBEDDINGS (memify pipeline 1)
+# MEMORY — TRIPLET EMBEDDINGS (memify pipeline 1)
 # ------------------------------------------------------------------
 @app.post("/api/memory/triplet-embeddings")
 async def memory_triplet_embeddings(req: ProjectRequest):
@@ -196,11 +196,10 @@ async def memory_triplet_embeddings(req: ProjectRequest):
         result = await CogneeService.create_triplet_embeddings(req.project)
         return result
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# MEMORY â€” CONSOLIDATE ENTITIES (memify pipeline 2)
+# MEMORY — CONSOLIDATE ENTITIES (memify pipeline 2)
 # ------------------------------------------------------------------
 @app.post("/api/memory/consolidate-entities")
 async def memory_consolidate_entities(req: ProjectRequest):
@@ -208,11 +207,10 @@ async def memory_consolidate_entities(req: ProjectRequest):
         result = await CogneeService.consolidate_entities(req.project)
         return result
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# MEMORY â€” SOURCES (list ingested sources for a project)
+# MEMORY — SOURCES (list ingested sources for a project)
 # ------------------------------------------------------------------
 @app.post("/api/memory/sources")
 async def memory_sources(req: SourcesRequest):
@@ -220,8 +218,7 @@ async def memory_sources(req: SourcesRequest):
         result = await CogneeService.list_sources(req.project)
         return {"sources": result}
     except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(status_code=500, detail=repr(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
 # ENTRYPOINT

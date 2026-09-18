@@ -10,7 +10,7 @@ from cognee_service import CogneeService
 async def test():
     # 1. Test chat with auto-routing
     print("=== Test 1: Chat with recall auto-routing ===")
-    result = await CogneeService.chat("dev-doc-copilot", "What is this project about?", session_id="test_session_001")
+    result = await CogneeService.chat("devdoc", "What is this project about?", session_id="test_session_001")
     print(f"  role: {result.get('role')}")
     print(f"  content length: {len(result.get('content', ''))}")
     print(f"  session_id: {result.get('session_id')}")
@@ -29,7 +29,7 @@ async def test():
     # 3. Test visualize graph
     print("=== Test 3: Visualize graph ===")
     try:
-        html = await cognee.visualize_graph(dataset="dev-doc-copilot", include_session_events=True)
+        html = await cognee.visualize_graph(dataset="devdoc", include_session_events=True)
         print(f"  HTML length: {len(html)} chars")
         print(f"  First 100: {html[:100]}")
     except Exception as e:

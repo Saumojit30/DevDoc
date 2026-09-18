@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import axios from 'axios';
 
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 
@@ -38,7 +39,6 @@ export function activate(context: vscode.ExtensionContext) {
                     switch (message.command) {
                         case 'chat':
                             try {
-                                const axios = require('axios');
                                 const response = await axios.post(`${backendUrl}/api/chat`, {
                                     project: project,
                                     question: message.text,
@@ -58,7 +58,6 @@ export function activate(context: vscode.ExtensionContext) {
 
                         case 'getGraph':
                             try {
-                                const axios = require('axios');
                                 const response = await axios.post(`${backendUrl}/api/graph/data`, {
                                     project: project
                                 });
@@ -366,14 +365,14 @@ function getWebviewContent(webview: vscode.Webview, extensionPath: string): stri
 
                 case 'graphData':
                     const info = document.getElementById('graph-info');
-                    info.textContent = `Graph: ${message.data.metrics.num_nodes} nodes, ${message.data.metrics.num_edges} edges`;
+                    info.textContent = 'Graph: ' + message.data.metrics.num_nodes + ' nodes, ' + message.data.metrics.num_edges + ' edges';
                     const viz = document.getElementById('graph-visualization');
                     viz.innerHTML = '<pre style="font-size:11px;overflow:auto;">' + JSON.stringify(message.data, null, 2) + '</pre>';
                     break;
 
                 case 'config':
                     currentConfig = message;
-                    document.getElementById('status').textContent = `Connected to ${message.backendUrl}`;
+                    document.getElementById('status').textContent = 'Connected to ' + message.backendUrl;
                     break;
 
                 case 'prefillQuery':

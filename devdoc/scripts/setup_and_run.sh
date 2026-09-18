@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Cognee Dev-Doc Copilot — Setup & First Run Script
+# DevDoc — Setup & First Run Script
 # =============================================================================
 # This script automates prerequisites, environment setup, cloning a sample
-# repo, and running the dev-doc copilot starter.
+# repo, and running the DevDoc starter.
 #
 # Usage:
 #   chmod +x setup_and_run.sh
@@ -13,7 +13,7 @@
 set -e  # Exit immediately if a command exits with a non-zero status
 
 echo "========================================"
-echo "Dev-Doc Copilot Setup"
+echo "DevDoc Setup"
 echo "========================================"
 
 # ---------------------------------------------------------------------------
@@ -90,12 +90,12 @@ fi
 # 6. Run the starter script
 # ---------------------------------------------------------------------------
 echo ""
-echo "[6/6] Running dev_doc_copilot_starter.py..."
+echo "[6/6] Running devdoc_starter.py..."
 echo "========================================"
-if [ -f "dev_doc_copilot_starter.py" ]; then
-    python dev_doc_copilot_starter.py
+if [ -f "devdoc_starter.py" ]; then
+    python devdoc_starter.py
 else
-    echo "ERROR: dev_doc_copilot_starter.py not found in current directory."
+    echo "ERROR: devdoc_starter.py not found in current directory."
     echo "Please place it here, then run this script again."
     exit 1
 fi

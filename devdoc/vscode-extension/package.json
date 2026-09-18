@@ -1,7 +1,7 @@
 {
-  "name": "dev-doc-copilot-vscode",
-  "displayName": "Dev-Doc Copilot",
-  "description": "Cognee-powered knowledge graph copilot inside VS Code",
+  "name": "devdoc-vscode",
+  "displayName": "DevDoc",
+  "description": "Cognee-powered Knowledge Graph developer engine inside VS Code",
   "version": "1.0.0",
   "publisher": "your-team",
   "engines": {

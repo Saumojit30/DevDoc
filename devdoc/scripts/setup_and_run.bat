@@ -1,10 +1,10 @@
 @echo off
 REM ===========================================================================
-REM Cognee Dev-Doc Copilot — Setup & First Run (Windows)
+REM DevDoc — Setup & First Run (Windows)
 REM ===========================================================================
 
 echo ========================================
-echo Dev-Doc Copilot Setup
+echo DevDoc Setup
 echo ========================================
 
 REM 1. Check Python
@@ -23,7 +23,7 @@ if not exist .venv (
 )
 
 REM 3. Activate and install
-\.venv\Scriptsctivate.bat
+call .venv\Scripts\activate.bat
 pip install --upgrade pip
 pip install cognee[codegraph]
 
@@ -45,6 +45,6 @@ if not exist sample-repo (
 
 REM 6. Run
 echo [4/5] Running starter...
-python dev_doc_copilot_starter.py
+python devdoc_starter.py
 
 echo [5/5] Done.

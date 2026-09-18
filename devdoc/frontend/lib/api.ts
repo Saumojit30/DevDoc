@@ -180,9 +180,12 @@ export async function getGraphVisualizationHtml(project: string): Promise<string
   return data.html
 }
 
-export async function getHealth(): Promise<{ status: string; version: string }> {
+export async function getHealth(): Promise<{ status: string; version: string; latencyMs: number }> {
+  const start = performance.now()
   const res = await fetch("/api/health")
-  return res.json()
+  const data = await res.json()
+  const end = performance.now()
+  return { ...data, latencyMs: Math.round(end - start) }
 }
 
 export async function getGraphInventory(project: string, samplesPerType = 5): Promise<any> {

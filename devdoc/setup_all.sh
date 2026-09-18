@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Dev-Doc Copilot — Complete Setup
+# DevDoc — Complete Setup
 # =============================================================================
-# Run this from the dev-doc-copilot/ root directory.
+# Run this from the devdoc/ directory.
 #
 # Usage:
 #   chmod +x setup_all.sh
@@ -12,7 +12,7 @@
 set -e
 
 echo "========================================"
-echo "Dev-Doc Copilot — Complete Setup"
+echo "DevDoc — Complete Setup"
 echo "========================================"
 
 # 1. Backend
