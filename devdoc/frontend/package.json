@@ -1,6 +1,17 @@
 {
   "name": "devdoc-frontend",
   "version": "1.0.0",
+  "description": "Next.js 16 SPA dashboard and D3.js force-directed knowledge graph explorer for DevDoc",
+  "keywords": [
+    "knowledge-graph",
+    "graph-rag",
+    "ast-parser",
+    "d3",
+    "nextjs",
+    "developer-tools",
+    "framer-motion",
+    "code-intelligence"
+  ],
   "private": true,
   "scripts": {
     "dev": "next dev",

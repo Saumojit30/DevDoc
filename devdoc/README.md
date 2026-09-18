@@ -1,12 +1,16 @@
 # DevDoc
 
-DevDoc is a project-scoped documentation and code assistant built around Cognee’s graph memory. It ingests docs, URLs, files, and code repositories into a knowledge graph, then answers questions with source-aware responses that connect documentation to implementation details.
+> **Deterministic AST Code-Graph & Cross-Doc Knowledge Engine for Multi-Modal Developer Assistance**
 
-The repository contains three parts:
+`#graph-rag` `#knowledge-graph` `#ast-parser` `#cognee` `#fastapi` `#nextjs-16` `#typescript` `#d3js` `#vscode-extension` `#multi-modal-rag`
 
-- a Next.js frontend for chat, ingestion, graph exploration, and memory actions
-- a FastAPI backend that wraps the Cognee SDK and exposes REST endpoints
-- a VS Code extension that brings the assistant into the editor
+DevDoc is a project-scoped developer assistant and knowledge engine built around Cognee’s graph memory. It generates deterministic Abstract Syntax Tree (AST) code graphs and fuses them with external documentation (PDFs, Markdown, Web URLs) into a unified knowledge graph—answering questions with exact citation-backed reasoning and D3 force-directed visual inspection.
+
+The codebase contains three integrated surfaces:
+
+- **Frontend (`frontend/`)**: Next.js 16 SPA dashboard featuring source-aware chat, D3 interactive force-directed graph visualizer, and multi-source ingestion.
+- **Backend (`backend/`)**: FastAPI service wrapping the Cognee SDK, AST CodeGraph pipelines, and graph metrics endpoints.
+- **VS Code Extension (`vscode-extension/`)**: Editor-integrated WebView client connecting directly to the local FastAPI backend.
 
 ## Architecture
 

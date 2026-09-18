@@ -2,7 +2,7 @@
 
 # 🧠 DevDoc
 
-### *The Graph-Aware Developer Assistant & Codebase Knowledge Engine*
+### *Deterministic AST Code-Graph & Cross-Doc Knowledge Engine for Multi-Modal Developer Assistance*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js 16](https://img.shields.io/badge/Next.js%2016-App%20Router-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
@@ -14,10 +14,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 <p align="center">
-  <strong>Unify documentation, architectural specs, and codebase AST hierarchies into a queryable Knowledge Graph.</strong>
+  <strong>Fuses codebase AST syntax trees, API documentation, PDFs, and web wikis into a unified, queryable Knowledge Graph.</strong>
   <br />
-  Featuring source-attributed technical Q&A, real-time D3 force-directed topological exploration, surgical memory pruning, and native dual-client interfaces.
+  Enables multi-hop code reasoning, citation-backed technical Q&A, real-time D3 force-directed topological exploration, surgical memory pruning, and native dual-client workflows.
 </p>
+
+```
+🏷️ Tags: #graph-rag #knowledge-graph #ast-parser #cognee #code-intelligence #fastapi #nextjs-16 #typescript #d3js #vscode-extension #multi-modal-rag #developer-tools
+```
 
 [Explore Architecture](#-system-architecture) •
 [Why Graph RAG?](#-why-devdoc-graph-rag-vs-naive-vector-rag) •
@@ -34,7 +38,11 @@
 
 Modern AI coding assistants (such as Cursor or GitHub Copilot) rely primarily on **Naive Chunk-based Vector RAG** or ephemeral workspace window buffers. When projects grow across hundreds of files, deep inheritance trees, and external documentation (PDFs, API specifications, and architectural wikis), flat vector chunking loses execution semantics and multi-hop dependencies.
 
-**DevDoc** solves this by constructing a **deterministic Abstract Syntax Tree (AST) Knowledge Graph** paired with **Cognee Graph Memory**. It ingests heterogeneous documents (PDFs, Markdown, Web URLs) alongside source code repositories into a unified topological memory model—surfacing exact caller/callee paths, cross-domain documentation citations, and persistent multi-project knowledge across both a modern Next.js web dashboard and a native VS Code extension.
+**DevDoc** bridges this architectural gap by extracting a **deterministic Abstract Syntax Tree (AST) Knowledge Graph** from source code and unifying it with parsed multi-source documentation (PDFs, Markdown, Web URLs) inside **Cognee Graph Memory**. It delivers:
+- **Topological AST Code Awareness**: Preserves physical execution edges `(FunctionA)-[:CALLS]->(FunctionB)` and `(Class)-[:IMPLEMENTS]->(Interface)`.
+- **Heterogeneous Semantic Fusion**: Links function references in documentation directly to AST implementation nodes.
+- **Explainable Knowledge Retrieval**: Visualizes exact reasoning paths via an interactive D3 force-directed visualizer.
+- **Dual-Client Ecosystem**: Seamlessly queryable via a Next.js 16 glassmorphic dashboard and a native VS Code WebView extension.
 
 ---
 
