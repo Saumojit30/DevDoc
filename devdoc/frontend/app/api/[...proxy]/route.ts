@@ -13,17 +13,24 @@ async function proxy(req: NextRequest) {
     const path = req.nextUrl.pathname.replace("/api", "")
     const qs = req.nextUrl.search
     const url = `${BACKEND}/api${path}${qs}`
-    const body = req.method !== "GET" && req.method !== "HEAD" ? await req.text() : undefined
+    const contentType = req.headers.get("content-type") || "application/json"
+    
+    let body: BodyInit | undefined = undefined
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      const buffer = await req.arrayBuffer()
+      body = Buffer.from(buffer)
+    }
+
     const res = await fetch(url, {
       method: req.method,
       headers: {
-        "content-type": req.headers.get("content-type") || "application/json",
+        "content-type": contentType,
         accept: "application/json",
       },
       body,
     })
-    const text = await res.text()
-    return new NextResponse(text, {
+    const arrayBuf = await res.arrayBuffer()
+    return new NextResponse(arrayBuf, {
       status: res.status,
       headers: { "content-type": res.headers.get("content-type") || "application/json" },
     })

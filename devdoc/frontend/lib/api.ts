@@ -21,6 +21,13 @@ export interface GraphNode {
   properties: Record<string, any>
 }
 
+export interface SymbolDetailsResponse {
+  symbol: GraphNode
+  code_snippet: string
+  callers: Array<{ id: string; label: string; type: string; signature?: string }>
+  callees: Array<{ id: string; label: string; type: string; signature?: string }>
+}
+
 export interface GraphEdge {
   source: string
   target: string
@@ -71,12 +78,27 @@ export async function chatQuery(
   return res.json()
 }
 
+export interface IngestResponse {
+  status: string
+  dataset?: string
+  logs?: string[]
+  ingested?: { urls: number; files: number }
+  files_ingested?: number
+  candidate_files?: number
+  selected_files?: number
+  repo?: string
+  url?: string
+  chars?: number
+  session_id?: string
+  session_ids?: string[]
+}
+
 export async function ingestDocs(
   project: string,
   urls: string[],
   files: File[],
   sessionId?: string,
-): Promise<void> {
+): Promise<IngestResponse> {
   const formData = new FormData()
   formData.append("project", project)
   urls.forEach(u => formData.append("urls", u))
@@ -88,6 +110,7 @@ export async function ingestDocs(
     body: formData,
   })
   if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
 export async function ingestCode(
@@ -95,26 +118,28 @@ export async function ingestCode(
   repoPath: string,
   cloneUrl?: string,
   sessionId?: string,
-): Promise<void> {
+): Promise<IngestResponse> {
   const res = await fetch(`${API_BASE}/ingest/code`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project, repoPath, cloneUrl, sessionId }),
   })
   if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
 export async function ingestUrl(
   project: string,
   url: string,
   sessionId?: string,
-): Promise<void> {
+): Promise<IngestResponse> {
   const res = await fetch(`${API_BASE}/ingest/url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project, url, sessionId }),
   })
   if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
 export async function forgetSource(
@@ -134,13 +159,14 @@ export async function improveMemory(
   project: string,
   feedback: string,
   sessionIds?: string[],
-): Promise<void> {
+): Promise<IngestResponse> {
   const res = await fetch(`${API_BASE}/memory/improve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project, feedback, sessionIds }),
   })
   if (!res.ok) throw new Error(await res.text())
+  return res.json()
 }
 
 export async function getGraphData(project: string): Promise<GraphData> {
@@ -148,6 +174,16 @@ export async function getGraphData(project: string): Promise<GraphData> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+export async function getSymbolDetails(project: string, symbolId: string): Promise<SymbolDetailsResponse> {
+  const res = await fetch("/api/graph/symbol", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, symbol_id: symbolId }),
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()

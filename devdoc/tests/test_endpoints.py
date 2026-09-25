@@ -20,7 +20,7 @@ async def test():
     # 2. Test triplet embeddings
     print("=== Test 2: Triplet embeddings ===")
     try:
-        result2 = await CogneeService.create_triplet_embeddings()
+        result2 = await CogneeService.create_triplet_embeddings("devdoc")
         print(f"  status: {result2}")
     except Exception as e:
         print(f"  SKIPPED (needs prior ingestion): {e}")

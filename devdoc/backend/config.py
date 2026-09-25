@@ -5,12 +5,32 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(usecwd=True))
 
 class Settings:
-    LLM_API_KEY: str = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("LLM_API_KEY", "")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini").lower()
+    LLM_API_KEY: str = (
+        os.getenv("LLM_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or os.getenv("GROQ_API_KEY")
+        or os.getenv("OPENAI_API_KEY", "")
+    )
     GCP_PROJECT_ID: str = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID") or os.getenv("PROJECT_ID", "")
     GCP_LOCATION: str = os.getenv("GCP_LOCATION") or os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
-    LLM_ENDPOINT: str = os.getenv("LLM_ENDPOINT", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-2.5-flash")
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")
+    
+    # Provider-aware defaults if not explicitly set
+    _default_endpoint = ""
+    _default_model = "gemini-2.5-flash"
+    if LLM_PROVIDER == "groq":
+        _default_endpoint = "https://api.groq.com/openai/v1"
+        _default_model = "llama-3.1-8b-instant"
+    elif LLM_PROVIDER == "ollama":
+        _default_endpoint = "http://localhost:11434/v1"
+        _default_model = "qwen2.5-coder:7b"
+    elif LLM_PROVIDER == "openai":
+        _default_endpoint = "https://api.openai.com/v1"
+        _default_model = "gpt-4o-mini"
+
+    LLM_ENDPOINT: str = os.getenv("LLM_ENDPOINT", _default_endpoint)
+    LLM_MODEL: str = os.getenv("LLM_MODEL", _default_model)
     EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "fastembed")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     DATA_DIR: Path = Path(os.getenv("DATA_ROOT_DIRECTORY", "./.data_storage"))

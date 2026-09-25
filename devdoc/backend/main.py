@@ -15,10 +15,75 @@ from cognee_service import CogneeService
 from config import settings
 from graph_routes import router as graph_router
 
+from contextlib import asynccontextmanager
+import logging
+
+logger = logging.getLogger("devdoc")
+
+def init_cognee_config() -> dict:
+    """
+    Synchronizes DevDoc settings with Cognee's internal LLM configuration.
+    Also ensures required environment variables are synchronized for any
+    subsystems that directly inspect os.environ.
+    """
+    # 1. Sync environment variables as defense-in-depth
+    if settings.LLM_PROVIDER:
+        os.environ["LLM_PROVIDER"] = settings.LLM_PROVIDER
+    if settings.LLM_MODEL:
+        os.environ["LLM_MODEL"] = settings.LLM_MODEL
+    if settings.LLM_ENDPOINT:
+        os.environ["LLM_ENDPOINT"] = settings.LLM_ENDPOINT
+    if settings.LLM_API_KEY:
+        os.environ["LLM_API_KEY"] = settings.LLM_API_KEY
+        if settings.LLM_PROVIDER == "gemini":
+            os.environ.setdefault("GEMINI_API_KEY", settings.LLM_API_KEY)
+            os.environ.setdefault("GOOGLE_API_KEY", settings.LLM_API_KEY)
+        elif settings.LLM_PROVIDER == "groq":
+            os.environ.setdefault("GROQ_API_KEY", settings.LLM_API_KEY)
+        elif settings.LLM_PROVIDER == "openai":
+            os.environ.setdefault("OPENAI_API_KEY", settings.LLM_API_KEY)
+
+    config_payload = {
+        "llm_provider": settings.LLM_PROVIDER,
+        "llm_model": settings.LLM_MODEL,
+    }
+    if settings.LLM_API_KEY:
+        config_payload["llm_api_key"] = settings.LLM_API_KEY
+    if settings.LLM_ENDPOINT:
+        config_payload["llm_endpoint"] = settings.LLM_ENDPOINT
+
+    # 2. Configure Cognee runtime if cognee is available
+    try:
+        import cognee
+        if hasattr(cognee, "config") and hasattr(cognee.config, "set_llm_config"):
+            try:
+                cognee.config.set_llm_config(config_payload)
+            except TypeError:
+                cognee.config.set_llm_config(**config_payload)
+            logger.info(
+                f"[Cognee] LLM synchronized: provider='{settings.LLM_PROVIDER}', "
+                f"model='{settings.LLM_MODEL}', endpoint='{settings.LLM_ENDPOINT or 'default'}', "
+                f"api_key_set={bool(settings.LLM_API_KEY)}"
+            )
+        else:
+            logger.warning("[Cognee] cognee.config.set_llm_config not available on installed cognee package.")
+    except ImportError:
+        logger.warning("[Cognee] cognee library not imported; skipping runtime config sync.")
+    except Exception as e:
+        logger.error(f"[Cognee] Error synchronizing LLM config: {e}")
+
+    return config_payload
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_cognee_config()
+    yield
+
 app = FastAPI(
     title="Dev-Doc Copilot API",
     description="Cognee-powered knowledge graph backend for developer documentation and code.",
     version="1.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -103,7 +168,8 @@ async def ingest_docs(
     try:
         saved_files: list[Path] = []
         for f in files:
-            dest = settings.UPLOAD_DIR / f.filename
+            safe_name = Path(f.filename).name if f.filename else "doc_upload.txt"
+            dest = settings.UPLOAD_DIR / safe_name
             async with aiofiles.open(dest, "wb") as out:
                 content = await f.read()
                 await out.write(content)
@@ -111,6 +177,8 @@ async def ingest_docs(
 
         result = await CogneeService.ingest_docs(project, urls, saved_files, session_id=sessionId)
         return result
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -133,7 +201,7 @@ async def ingest_code(req: IngestCodeRequest):
         if "Git clone failed:" in str(e):
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
-    except FileNotFoundError as e:
+    except (FileNotFoundError, NotADirectoryError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -173,7 +241,7 @@ async def memory_forget(req: ForgetRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ------------------------------------------------------------------
-# MEMORY â€” IMPROVE
+# MEMORY — IMPROVE
 # ------------------------------------------------------------------
 @app.post("/api/memory/improve")
 async def memory_improve(req: ImproveRequest):

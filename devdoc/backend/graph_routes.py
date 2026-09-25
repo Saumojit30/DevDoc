@@ -1,10 +1,16 @@
+import json
+import os
 import re
+from pathlib import Path
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import cognee
 from cognee.infrastructure.databases.graph import get_graph_engine
+
+from cognee_service import load_ast_graph
 
 router = APIRouter(prefix="/api/graph", tags=["graph"])
 
@@ -21,6 +27,11 @@ class GraphDataRequest(BaseModel):
 class GraphInventoryRequest(BaseModel):
     project: str
     samples_per_type: int = 5
+
+
+class SymbolLookupRequest(BaseModel):
+    project: str
+    symbol_id: str
 
 
 def _filter_nodes_by_dataset(nodes: list, edges: list, dataset: str) -> tuple[list, list]:
@@ -40,42 +51,112 @@ def _filter_nodes_by_dataset(nodes: list, edges: list, dataset: str) -> tuple[li
     return filtered_nodes, filtered_edges
 
 
+def _extract_source_snippet(file_path: str, start_line: int, end_line: int) -> str:
+    try:
+        p = Path(file_path)
+        if not p.exists():
+            return ""
+        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+        start = max(0, start_line - 1)
+        end = min(len(lines), max(end_line, start_line))
+        return "\n".join(lines[start:end])
+    except Exception:
+        return ""
+
+
 @router.post("/data")
 async def get_graph_data(req: GraphDataRequest):
     """
-    Returns raw nodes and edges from the graph engine for a project dataset.
-    Consumed by D3.js force-directed visualization.
+    Returns raw nodes and edges from the graph engine and deep AST parser for a project dataset.
+    Consumed by D3.js force-directed visualization and inspector.
     """
     dataset = _dataset_name(req.project)
     try:
-        graph_engine = await get_graph_engine()
-        nodes, edges = await graph_engine.get_graph_data()
-        nodes, edges = _filter_nodes_by_dataset(nodes, edges, dataset)
+        # 1. Fetch Cognee graph engine data
+        cognee_nodes: list = []
+        cognee_edges: list = []
+        try:
+            graph_engine = await get_graph_engine()
+            raw_nodes, raw_edges = await graph_engine.get_graph_data()
+            cognee_nodes, cognee_edges = _filter_nodes_by_dataset(raw_nodes, raw_edges, dataset)
+        except Exception:
+            cognee_nodes, cognee_edges = [], []
 
-        node_list = []
-        for n in nodes:
+        # 2. Fetch Deep AST Graph nodes & edges
+        ast_nodes, ast_edges = load_ast_graph(dataset)
+
+        node_dict: dict[str, dict[str, Any]] = {}
+
+        # Add Cognee nodes
+        for n in cognee_nodes:
             node_id, props = n if isinstance(n, tuple) else (str(n), {})
             safe_props = {k: str(v) if not isinstance(v, (str, int, float, bool, list, dict)) else v for k, v in props.items()}
-            node_list.append({
-                "id": str(node_id),
+            nid = str(node_id)
+            node_dict[nid] = {
+                "id": nid,
                 "label": safe_props.get("name") or safe_props.get("type") or safe_props.get("label", "Node"),
                 "type": safe_props.get("type", safe_props.get("node_type", "unknown")),
                 "source": str(safe_props.get("source") or safe_props.get("source_pipeline") or "")[:200],
                 "properties": safe_props,
-            })
+            }
 
-        node_ids = {n["id"] for n in node_list}
-        edge_list = []
-        for e in edges:
+        # Add / Merge AST nodes (AST nodes take priority for code symbols with line numbers, signatures)
+        for n in ast_nodes:
+            nid = str(n.get("id"))
+            props = n.get("properties", {})
+            safe_props = {k: str(v) if not isinstance(v, (str, int, float, bool, list, dict)) else v for k, v in props.items()}
+            node_dict[nid] = {
+                "id": nid,
+                "label": n.get("label") or safe_props.get("name", "Node"),
+                "type": n.get("type") or safe_props.get("type", "CodeSymbol"),
+                "source": str(n.get("source") or safe_props.get("file_path", ""))[:200],
+                "properties": safe_props,
+            }
+
+        node_list = list(node_dict.values())
+        node_ids = set(node_dict.keys())
+
+        edge_list: list[dict[str, Any]] = []
+        seen_edges: set[tuple[str, str, str]] = set()
+
+        # Add Cognee edges
+        for e in cognee_edges:
             source_id, target_id, rel_name, props = e if isinstance(e, tuple) else (str(e), "", "", {})
-            if source_id not in node_ids and target_id not in node_ids:
+            sid, tid = str(source_id), str(target_id)
+            if sid not in node_ids and tid not in node_ids:
                 continue
+            rel = rel_name or props.get("relation", "related")
+            key = (sid, tid, rel)
+            if key in seen_edges:
+                continue
+            seen_edges.add(key)
             safe_props = {k: str(v) if not isinstance(v, (str, int, float, bool, list, dict)) else v for k, v in props.items()}
             edge_list.append({
-                "source": str(source_id),
-                "target": str(target_id),
-                "relation": rel_name or safe_props.get("relation", "related"),
+                "source": sid,
+                "target": tid,
+                "relation": rel,
                 "weight": safe_props.get("weight", 1.0),
+                "properties": safe_props,
+            })
+
+        # Add AST edges
+        for e in ast_edges:
+            sid = str(e.get("source"))
+            tid = str(e.get("target"))
+            rel = str(e.get("relation", "related"))
+            if sid not in node_ids or tid not in node_ids:
+                continue
+            key = (sid, tid, rel)
+            if key in seen_edges:
+                continue
+            seen_edges.add(key)
+            props = e.get("properties", {})
+            safe_props = {k: str(v) if not isinstance(v, (str, int, float, bool, list, dict)) else v for k, v in props.items()}
+            edge_list.append({
+                "source": sid,
+                "target": tid,
+                "relation": rel,
+                "weight": e.get("weight", 1.0),
                 "properties": safe_props,
             })
 
@@ -86,10 +167,59 @@ async def get_graph_data(req: GraphDataRequest):
             "metrics": {
                 "num_nodes": len(node_list),
                 "num_edges": len(edge_list),
-            }
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/symbol")
+async def get_symbol_details(req: SymbolLookupRequest):
+    """
+    Fetch deep symbol details, line snippets, callers, and callees.
+    """
+    dataset = _dataset_name(req.project)
+    ast_nodes, _ = load_ast_graph(dataset)
+
+    node_map = {n["id"]: n for n in ast_nodes}
+    target_node = node_map.get(req.symbol_id)
+
+    if not target_node:
+        raise HTTPException(status_code=404, detail=f"Symbol '{req.symbol_id}' not found in dataset '{dataset}'")
+
+    props = target_node.get("properties", {})
+    file_path = props.get("file_path", "")
+    start_line = props.get("start_line", 1)
+    end_line = props.get("end_line", start_line)
+
+    snippet = _extract_source_snippet(file_path, start_line, end_line)
+
+    callers_data = []
+    for c_id in props.get("callers", []):
+        if c_id in node_map:
+            callers_data.append({
+                "id": c_id,
+                "label": node_map[c_id].get("label"),
+                "type": node_map[c_id].get("type"),
+                "signature": node_map[c_id].get("properties", {}).get("signature", ""),
+            })
+
+    callees_data = []
+    for c_id in props.get("callees", []):
+        if c_id in node_map:
+            callees_data.append({
+                "id": c_id,
+                "label": node_map[c_id].get("label"),
+                "type": node_map[c_id].get("type"),
+                "signature": node_map[c_id].get("properties", {}).get("signature", ""),
+            })
+
+    return {
+        "symbol": target_node,
+        "code_snippet": snippet,
+        "callers": callers_data,
+        "callees": callees_data,
+    }
 
 
 @router.post("/inventory")
@@ -115,25 +245,19 @@ async def get_graph_metrics(req: GraphDataRequest):
     """
     dataset = _dataset_name(req.project)
     try:
-        graph_engine = await get_graph_engine()
-        nodes, edges = await graph_engine.get_graph_data()
-        nodes, _ = _filter_nodes_by_dataset(nodes, edges, dataset)
-
+        data = await get_graph_data(req)
+        nodes = data["nodes"]
+        edges = data["edges"]
         num_nodes = len(nodes)
-        unique_edge_pairs = set()
-        total_degree = 0
-        for source_id, target_id, *_ in edges:
-            if source_id in {n[0] for n in nodes} or target_id in {n[0] for n in nodes}:
-                unique_edge_pairs.add((source_id, target_id))
-                total_degree += 1
+        num_edges = len(edges)
 
         return {
             "dataset": dataset,
             "metrics": {
                 "num_nodes": num_nodes,
-                "num_edges": len(unique_edge_pairs),
+                "num_edges": num_edges,
                 "num_connected_components": 0,
-                "mean_degree": round(total_degree / num_nodes, 2) if num_nodes else 0,
+                "mean_degree": round((2 * num_edges) / num_nodes, 2) if num_nodes else 0,
             }
         }
     except Exception as e:

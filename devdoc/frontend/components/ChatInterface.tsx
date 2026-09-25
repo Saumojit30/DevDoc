@@ -80,13 +80,19 @@ export default function ChatInterface({ projectName, onTabChange }: { projectNam
                 <span className="material-symbols-outlined text-primary text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
               </div>
               <h2 className="font-headline-lg text-headline-lg text-on-surface mb-3">Ask Dev-Doc anything</h2>
+              {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+                <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-medium">
+                  <span className="material-symbols-outlined text-sm">info</span>
+                  <span>Demo Mode: Pre-seeded with FastAPI Docs & Code. Ask architectural questions!</span>
+                </div>
+              )}
               <p className="text-on-surface/40 font-body-md max-w-md mx-auto">
                 Ask technical questions about your codebase and get answers backed by your knowledge graph.
               </p>
             </div>
           )}
           {messages.map((msg, i) => (
-            <ChatMessage key={i} message={msg} />
+            <ChatMessage key={i} message={msg} projectName={projectName} sessionId={sessionId} />
           ))}
           {loading && (
             <div className="max-w-3xl mx-auto w-full">

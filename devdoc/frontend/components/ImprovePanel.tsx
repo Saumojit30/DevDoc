@@ -89,7 +89,7 @@ export default function ImprovePanel({ open, onClose, projectName }: ImprovePane
 
             <div className="flex items-center justify-between mt-6">
               <p className="font-code-sm text-[11px] text-on-surface/30">
-                Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to submit
+                Press Ctrl+Enter or Cmd+Enter to submit
               </p>
               <div className="flex items-center gap-3">
                 <button
