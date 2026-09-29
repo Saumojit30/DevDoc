@@ -57,7 +57,7 @@ This document tracks all remaining tasks required to bring **DevDoc** from its c
 
 ## 🟢 Phase 3: Live Demo Packaging & Free Deployment
 
-- [ ] **Pre-seed Demo Knowledge Dataset**
+- [x] **Pre-seed Demo Knowledge Dataset**
   - Run a one-time local ingestion of a representative, well-known codebase (e.g. FastAPI docs + core source code) so `.data_storage/` is pre-populated.
   - Verify that D3 graph rendering and chat queries load instantaneously without requiring the user to trigger a new ingestion.
 

@@ -20,7 +20,8 @@ stitch_devdoc_developer_cockpit/
 # Runtime data
 uploads/
 .cognee_system/
-.data_storage/
+.data_storage/*
+!.data_storage/ast_graphs/
 
 # Editor
 .vscode/
