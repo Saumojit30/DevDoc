@@ -144,7 +144,7 @@ function getWebviewContent(webview, extensionPath) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'unsafe-inline' ${webview.cspSource} https:; connect-src http://localhost:8000;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'unsafe-inline' ${webview.cspSource} https:; connect-src http://localhost:* http://127.0.0.1:* https:; frame-src http://localhost:* http://127.0.0.1:* https:;">
     <title>Dev-Doc Copilot</title>
     <style>
         body {
@@ -259,13 +259,65 @@ function getWebviewContent(webview, extensionPath) {
         }
         .graph-view {
             flex: 1;
-            padding: 16px;
-            overflow: auto;
+            padding: 12px 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         .graph-info {
             font-size: 12px;
             color: var(--vscode-descriptionForeground);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            font-size: 11px;
+            font-weight: 500;
+        }
+        #graph-visualization {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        .graph-iframe {
+            flex: 1;
+            width: 100%;
+            min-height: 420px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            background: var(--vscode-editor-background);
+        }
+        .graph-actions {
+            margin-top: 8px;
+            display: flex;
+            justify-content: flex-end;
+            font-size: 11px;
+        }
+        .graph-actions a {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+        }
+        .graph-actions a:hover {
+            text-decoration: underline;
+        }
+        .empty-graph {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+            font-size: 13px;
+            border: 1px dashed var(--vscode-panel-border);
+            border-radius: 6px;
         }
         .loading {
             text-align: center;
@@ -381,9 +433,20 @@ function getWebviewContent(webview, extensionPath) {
 
                 case 'graphData':
                     const info = document.getElementById('graph-info');
-                    info.textContent = 'Graph: ' + message.data.metrics.num_nodes + ' nodes, ' + message.data.metrics.num_edges + ' edges';
                     const viz = document.getElementById('graph-visualization');
-                    viz.innerHTML = '<pre style="font-size:11px;overflow:auto;">' + JSON.stringify(message.data, null, 2) + '</pre>';
+                    const numNodes = message.data && message.data.metrics ? message.data.metrics.num_nodes : 0;
+                    const numEdges = message.data && message.data.metrics ? message.data.metrics.num_edges : 0;
+
+                    info.innerHTML = '<span><strong>Knowledge Graph</strong></span><span class="badge">' + numNodes + ' nodes • ' + numEdges + ' edges</span>';
+
+                    if (numNodes === 0) {
+                        viz.innerHTML = '<div class="empty-graph"><p style="font-weight:600;margin-bottom:6px;">No Graph Data Yet</p><p style="font-size:11px;opacity:0.8;">Ingest code or documentation from DevDoc cockpit to build your knowledge graph.</p></div>';
+                    } else {
+                        const backendUrl = currentConfig.backendUrl || 'http://localhost:8000';
+                        const project = currentConfig.project || 'main';
+                        const iframeUrl = backendUrl + '/api/graph/visualize?project=' + encodeURIComponent(project);
+                        viz.innerHTML = '<iframe class="graph-iframe" src="' + iframeUrl + '"></iframe><div class="graph-actions"><a href="' + iframeUrl + '">↗ Open full visualization in browser</a></div>';
+                    }
                     break;
 
                 case 'config':

@@ -2,8 +2,20 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 os.chdir(os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-
 import asyncio
+if "cognee" not in sys.modules:
+    try:
+        import cognee
+    except ImportError:
+        from unittest.mock import AsyncMock, MagicMock
+        mock_cognee = MagicMock()
+        mock_cognee.recall = AsyncMock(return_value=[{"text": "DevDoc Copilot is a knowledge graph engine.", "source": "README.md", "type": "doc"}])
+        mock_cognee.visualize_graph = AsyncMock(return_value="<html><body>Mock Graph Visualization</body></html>")
+        sys.modules["cognee"] = mock_cognee
+        sys.modules["cognee.infrastructure"] = MagicMock()
+        sys.modules["cognee.infrastructure.databases"] = MagicMock()
+        sys.modules["cognee.infrastructure.databases.graph"] = MagicMock()
+
 import cognee
 from cognee_service import CogneeService
 

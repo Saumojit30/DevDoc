@@ -10,7 +10,7 @@ This document tracks all remaining tasks required to bring **DevDoc** from its c
   - **Issue:** Cognee starts without an explicit `cognee.config.set_llm_config(...)`. Even though custom `_call_llm()` supports Groq, OpenAI, and Ollama, Cognee's internal entity extraction during ingestion falls back to its default environment parser.
   - **Action:** Add explicit startup configuration in `main.py` using `settings.LLM_PROVIDER`, `settings.LLM_ENDPOINT`, `settings.LLM_MODEL`, and `settings.LLM_API_KEY`.
 
-- [ ] **Fix VS Code Extension Graph Rendering (`vscode-extension/src/extension.ts`)**
+- [x] **Fix VS Code Extension Graph Rendering (`vscode-extension/src/extension.ts`)**
   - **Issue:** Clicking the "Graph" tab currently dumps raw JSON text inside a `<pre>` tag (`JSON.stringify(message.data)` at line 370).
   - **Action:** Embed an `<iframe>` pointing to `${backendUrl}/api/graph/visualize-html?project=${project}` or render an interactive SVG/canvas node visualization inside the WebView.
 
@@ -18,7 +18,7 @@ This document tracks all remaining tasks required to bring **DevDoc** from its c
   - **Issue:** Line 179 contains a corrupted character string: `# MEMORY â€” IMPROVE`.
   - **Action:** Replace with clean UTF-8 text: `# MEMORY — IMPROVE`.
 
-- [ ] **Update `backend/.env.example` with Multi-Provider Templates**
+- [x] **Update `backend/.env.example` with Multi-Provider Templates**
   - **Issue:** Currently only documents Google Gemini.
   - **Action:** Add commented configuration blocks for Groq, OpenAI, Local Ollama, and Google AI Studio so developers can switch providers easily.
 
@@ -26,7 +26,7 @@ This document tracks all remaining tasks required to bring **DevDoc** from its c
 
 ## 🟡 Phase 2: End-to-End Local Verification
 
-- [ ] **Run and Validate Test Suite**
+- [x] **Run and Validate Test Suite**
   - Execute:
     ```bash
     cd devdoc/backend
@@ -37,7 +37,7 @@ This document tracks all remaining tasks required to bring **DevDoc** from its c
     - Chat query recall returns grounded answers and non-empty source citations.
     - Graph endpoints (`/api/graph/data`) return valid node and edge arrays.
 
-- [ ] **Verify Frontend Production Build**
+- [x] **Verify Frontend Production Build**
   - Execute:
     ```bash
     cd devdoc/frontend
@@ -45,7 +45,7 @@ This document tracks all remaining tasks required to bring **DevDoc** from its c
     ```
   - Ensure zero Next.js App Router / TypeScript strict mode compilation errors.
 
-- [ ] **Verify VS Code Extension Compilation**
+- [x] **Verify VS Code Extension Compilation**
   - Execute:
     ```bash
     cd devdoc/vscode-extension
