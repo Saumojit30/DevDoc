@@ -128,9 +128,12 @@ function getFileName(filePath: string): string {
 }
 
 function getDirName(filePath: string): string {
-  const clean = filePath.replace(/^file:\/\//, "")
-  const parts = clean.split(/[/\\]/)
-  return parts.length > 1 ? parts.slice(0, -1).join("/") : "root"
+  const clean = filePath.replace(/^file:\/\//, "").replace(/\\/g, "/")
+  const parts = clean.split("/").filter(Boolean)
+  if (parts.length <= 1) return "root"
+  const parentFolders = parts.slice(0, -1)
+  const lastFolders = parentFolders.slice(-2).join("/")
+  return lastFolders.length > 20 ? "…" + lastFolders.slice(-19) : lastFolders
 }
 
 export default function KnowledgeGraph({ projectName }: { projectName: string }) {
@@ -180,7 +183,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (!el) return
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect
-      setDimensions({ width: Math.max(width, 400), height: Math.max(height, 300) })
+      setDimensions({ width: Math.max(width, 600), height: Math.max(height, 500) })
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -398,20 +401,20 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
       .attr("stroke-opacity", 0.6)
 
-    // 2. Link Labels (coupling weight / relation)
+    // 2. Link Labels (coupling weight / relation) - hidden by default to eliminate visual clutter
     const linkLabelGroup = g.append("g").attr("class", "link-labels")
     const linkLabel = linkLabelGroup
       .selectAll<SVGTextElement, SimLink>("text")
       .data(simLinks)
       .join("text")
       .text((d) => graphLevel === "architecture" ? `${d.weight > 1 ? `${d.weight}x ` : ""}${d.relation}` : d.relation)
-      .attr("fill", "#64748b")
-      .attr("font-size", graphLevel === "architecture" ? 9 : 8)
+      .attr("fill", "#94a3b8")
+      .attr("font-size", graphLevel === "architecture" ? 8.5 : 8)
       .attr("font-family", "JetBrains Mono, ui-monospace, monospace")
       .attr("text-anchor", "middle")
       .attr("dy", -6)
       .attr("pointer-events", "none")
-      .attr("opacity", 0.65)
+      .attr("opacity", 0)
 
     // 3. Node Groups
     const nodeGroup = g.append("g")
@@ -430,7 +433,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
     if (graphLevel === "architecture") {
       // ARCHITECTURE CARD NODE (Modern Dev Card)
-      const CARD_W = 148
+      const CARD_W = 152
       const CARD_H = 46
 
       nodeGroup.append("rect")
@@ -446,14 +449,18 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("stroke-width", 1.5)
         .style("filter", "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
 
-      // Module Directory Subtitle
+      // Module Directory Subtitle (Truncated relative path)
       nodeGroup.append("text")
         .attr("class", "arch-module")
-        .text((d) => (d.moduleGroup ? `${d.moduleGroup}/` : ""))
+        .text((d) => {
+          if (!d.moduleGroup || d.moduleGroup === "root") return ""
+          const grp = d.moduleGroup
+          return grp.length > 18 ? "…" + grp.slice(-17) + "/" : `${grp}/`
+        })
         .attr("x", -CARD_W / 2 + 10)
         .attr("y", -CARD_H / 2 + 15)
         .attr("fill", PALETTE.fileCard.subtext)
-        .attr("font-size", 9)
+        .attr("font-size", 8.5)
         .attr("font-family", "JetBrains Mono, monospace")
         .attr("pointer-events", "none")
 
@@ -462,7 +469,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("class", "arch-filename")
         .text((d) => {
           const name = d.label
-          return name.length > 17 ? name.slice(0, 15) + "…" : name
+          return name.length > 18 ? name.slice(0, 16) + "…" : name
         })
         .attr("x", -CARD_W / 2 + 10)
         .attr("y", -CARD_H / 2 + 32)
@@ -548,20 +555,20 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     nodeGroup.call(drag)
 
     // Force Simulation configuration
-    const linkDistance = graphLevel === "architecture" ? 190 : 120
-    const chargeStrength = graphLevel === "architecture" ? -480 : -180
+    const linkDistance = graphLevel === "architecture" ? 240 : 120
+    const chargeStrength = graphLevel === "architecture" ? -650 : -180
 
     const sim = d3.forceSimulation(simNodes)
       .force("link", d3.forceLink<SimNode, SimLink>(simLinks)
         .id((d) => d.id)
         .distance(linkDistance)
-        .strength(0.3))
-      .force("charge", d3.forceManyBody().strength(chargeStrength).distanceMax(650))
+        .strength(0.25))
+      .force("charge", d3.forceManyBody().strength(chargeStrength).distanceMax(900))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collision", d3.forceCollide<SimNode>().radius((d) =>
-        graphLevel === "architecture" ? 85 : getNodeRadius(d.type) + 24
+        graphLevel === "architecture" ? 115 : getNodeRadius(d.type) + 24
       ))
-      .alphaDecay(0.025)
+      .alphaDecay(0.02)
       .on("tick", () => {
         link
           .attr("x1", (d) => (d.source as SimNode).x)
@@ -731,7 +738,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const tId = typeof d.target === "object" ? d.target.id : d.target
       const isConnected = sId === selectedNodeId || tId === selectedNodeId
 
-      let labelOpacity = 0.65
+      let labelOpacity = 0.0
       if (hasFocus) {
         labelOpacity = isConnected ? 1.0 : 0.0
       } else if (q) {
@@ -821,7 +828,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
   return (
     <motion.main
-      className="relative flex-1 flex overflow-hidden bg-[#090d16] text-on-surface"
+      className="md:ml-64 mt-16 flex h-[calc(100vh-64px)] overflow-hidden bg-[#090d16] text-on-surface relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}

@@ -22,6 +22,7 @@ uploads/
 .cognee_system/
 .data_storage/*
 !.data_storage/ast_graphs/
+devdoc/backend/.data_storage/
 
 # Editor
 .vscode/
