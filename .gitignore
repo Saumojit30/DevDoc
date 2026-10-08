@@ -34,5 +34,7 @@ start.ps1
 start.py
 dev-doc-copilot/backend/test_ingest.md
 STITCH_BLUEPRINT.md
+benchmarks/
+**/graphify-out/
 
 .logs/
