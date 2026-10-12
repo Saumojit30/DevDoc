@@ -144,24 +144,100 @@ class SymbolTable:
                 "properties": p,
             })
 
-        # Phase 1: Pre-resolve calls across symbols to populate callers/callees
+        # Phase 1: 3-Tier Call Resolution Hierarchy across symbols
         for file_path, f_res in self.files.items():
             for sym in f_res.symbols:
                 if sym.symbol_type == "module":
                     continue
                 sym_id = self._make_symbol_id(file_path, sym)
-                for call_name in sym.calls:
-                    # Try to resolve call in same file first
-                    target_id = None
-                    for other_id in self.file_to_symbols.get(file_path, []):
-                        other_sym = self.symbols[other_id]
-                        if other_sym.name == call_name and other_id != sym_id:
-                            target_id = other_id
-                            break
 
-                    # If not in same file, search other files
-                    if not target_id and call_name in self.symbols_by_name:
-                        candidates = self.symbols_by_name[call_name]
+                # Collect structured call references (fallback to string calls if call_refs empty)
+                call_references = getattr(sym, "call_refs", [])
+                if not call_references and sym.calls:
+                    from ast_parser import CallReference
+                    call_references = [CallReference(callee=c, receiver=None, is_member=False) for c in sym.calls]
+
+                for call_ref in call_references:
+                    callee = call_ref.callee
+                    receiver = call_ref.receiver
+                    target_id: Optional[str] = None
+
+                    # --- TIER 1: Same class / parent scope or local function ---
+                    if receiver in (None, "self", "cls"):
+                        if sym.parent:
+                            for other_id in self.file_to_symbols.get(file_path, []):
+                                other_sym = self.symbols[other_id]
+                                if other_sym.parent == sym.parent and other_sym.name == callee and other_id != sym_id:
+                                    target_id = other_id
+                                    break
+                        if not target_id and receiver is None:
+                            for other_id in self.file_to_symbols.get(file_path, []):
+                                other_sym = self.symbols[other_id]
+                                if other_sym.parent is None and other_sym.name == callee and other_id != sym_id:
+                                    target_id = other_id
+                                    break
+
+                    # --- TIER 2: Import-aware receiver matching & cross-file resolution ---
+                    if not target_id:
+                        if receiver:
+                            # 1. Check if receiver matches an imported symbol or alias
+                            for imp in f_res.imports:
+                                matched_sym = None
+                                if receiver in imp.imported_symbols:
+                                    matched_sym = receiver
+                                elif receiver in imp.alias_map.values():
+                                    for orig, alias in imp.alias_map.items():
+                                        if alias == receiver:
+                                            matched_sym = orig
+                                            break
+                                elif receiver == imp.module or receiver == imp.module.split(".")[-1]:
+                                    matched_sym = callee
+
+                                if matched_sym:
+                                    tgt_file = self.resolve_target_file(file_path, imp)
+                                    if tgt_file:
+                                        for other_id in self.file_to_symbols.get(tgt_file, []):
+                                            other_sym = self.symbols[other_id]
+                                            # Match member method in imported class
+                                            if other_sym.parent == matched_sym and other_sym.name == callee:
+                                                target_id = other_id
+                                                break
+                                            # Or direct function matching callee
+                                            if other_sym.name == callee:
+                                                target_id = other_id
+                                                break
+                                    if target_id:
+                                        break
+
+                            # 2. Check if receiver is a known class in the global symbol table
+                            if not target_id and receiver in self.symbols_by_name:
+                                for class_sym_id in self.symbols_by_name[receiver]:
+                                    class_file = self.symbol_id_to_file.get(class_sym_id)
+                                    if class_file:
+                                        for other_id in self.file_to_symbols.get(class_file, []):
+                                            other_sym = self.symbols[other_id]
+                                            if other_sym.parent == receiver and other_sym.name == callee:
+                                                target_id = other_id
+                                                break
+                                    if target_id:
+                                        break
+
+                        else:
+                            # Receiver is None, but callee might be explicitly imported
+                            for imp in f_res.imports:
+                                if callee in imp.imported_symbols or callee in imp.alias_map.values():
+                                    tgt_file = self.resolve_target_file(file_path, imp)
+                                    if tgt_file:
+                                        for other_id in self.file_to_symbols.get(tgt_file, []):
+                                            if self.symbols[other_id].name == callee:
+                                                target_id = other_id
+                                                break
+                                if target_id:
+                                    break
+
+                    # --- Fallback: Global unique match ---
+                    if not target_id and callee in self.symbols_by_name:
+                        candidates = [cid for cid in self.symbols_by_name[callee] if cid != sym_id]
                         if len(candidates) == 1:
                             target_id = candidates[0]
 
@@ -296,5 +372,42 @@ class SymbolTable:
                         weight=1.0,
                         props={"caller": sym.name, "callee": callee_name},
                     )
+
+            # Helper for Tier 3 scoped symbol resolution (type references and instantiations)
+            def resolve_scoped_symbol(sym_name: str, cur_file: str, imports: list[ParsedImport]) -> Optional[str]:
+                for s_id in self.file_to_symbols.get(cur_file, []):
+                    if self.symbols[s_id].name == sym_name:
+                        return s_id
+                for imp in imports:
+                    if sym_name in imp.imported_symbols or sym_name in imp.alias_map.values():
+                        tgt_f = self.resolve_target_file(cur_file, imp)
+                        if tgt_f:
+                            for s_id in self.file_to_symbols.get(tgt_f, []):
+                                if self.symbols[s_id].name == sym_name:
+                                    return s_id
+                cands = self.symbols_by_name.get(sym_name, [])
+                if len(cands) == 1:
+                    return cands[0]
+                return None
+
+            # 5. REFERENCES Edges (Type annotations)
+            for sym in f_res.symbols:
+                if sym.symbol_type == "module":
+                    continue
+                sym_id = self._make_symbol_id(file_path, sym)
+                for type_name in getattr(sym, "type_references", []):
+                    target_type_id = resolve_scoped_symbol(type_name, file_path, f_res.imports)
+                    if target_type_id and target_type_id != sym_id:
+                        add_edge(sym_id, target_type_id, "REFERENCES", weight=0.8, props={"type": type_name})
+
+            # 6. USES Edges (Instantiated dependencies)
+            for sym in f_res.symbols:
+                if sym.symbol_type == "module":
+                    continue
+                sym_id = self._make_symbol_id(file_path, sym)
+                for inst_name in getattr(sym, "instantiations", []):
+                    target_inst_id = resolve_scoped_symbol(inst_name, file_path, f_res.imports)
+                    if target_inst_id and target_inst_id != sym_id:
+                        add_edge(sym_id, target_inst_id, "USES", weight=1.1, props={"target": inst_name})
 
         return nodes, edges

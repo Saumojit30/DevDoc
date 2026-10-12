@@ -34,6 +34,20 @@ class ParsedImport:
 
 
 @dataclass
+class CallReference:
+    callee: str
+    receiver: Optional[str] = None
+    is_member: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "callee": self.callee,
+            "receiver": self.receiver,
+            "is_member": self.is_member,
+        }
+
+
+@dataclass
 class ParsedSymbol:
     name: str
     symbol_type: str  # "module", "class", "interface", "struct", "function", "method", "enum"
@@ -45,6 +59,9 @@ class ParsedSymbol:
     decorators: list[str] = field(default_factory=list)
     parent: Optional[str] = None  # Class name if method
     calls: list[str] = field(default_factory=list)
+    call_refs: list[CallReference] = field(default_factory=list)
+    type_references: list[str] = field(default_factory=list)
+    instantiations: list[str] = field(default_factory=list)
     extends: list[str] = field(default_factory=list)
     visibility: str = "public"  # "public", "private", "protected"
 
@@ -60,6 +77,9 @@ class ParsedSymbol:
             "decorators": self.decorators,
             "parent": self.parent,
             "calls": self.calls,
+            "call_refs": [ref.to_dict() for ref in self.call_refs],
+            "type_references": self.type_references,
+            "instantiations": self.instantiations,
             "extends": self.extends,
             "visibility": self.visibility,
         }
@@ -109,23 +129,92 @@ class _PythonVisitor(ast.NodeVisitor):
                 break
         return " ".join(header_lines)
 
-    def _extract_calls_from_node(self, node: ast.AST) -> list[str]:
-        calls = []
-        for subnode in ast.walk(node):
-            if isinstance(subnode, ast.Call):
-                func = subnode.func
+    def _extract_calls_and_refs(
+        self, node: ast.AST
+    ) -> tuple[list[str], list[CallReference], list[str], list[str]]:
+        call_names = []
+        call_refs = []
+        instantiations = []
+        type_refs = []
+
+        TYPE_IGNORE = {
+            "int", "str", "float", "bool", "list", "dict", "set", "tuple",
+            "Optional", "Union", "Any", "Callable", "None", "bytes", "object",
+        }
+
+        def extract_types_from_annotation(ann_node: ast.AST):
+            for sn in ast.walk(ann_node):
+                if isinstance(sn, ast.Name):
+                    if sn.id not in TYPE_IGNORE and sn.id not in type_refs:
+                        type_refs.append(sn.id)
+                elif isinstance(sn, ast.Attribute):
+                    if sn.attr not in TYPE_IGNORE and sn.attr not in type_refs:
+                        type_refs.append(sn.attr)
+
+        def walk_scope(current_node: ast.AST, is_root: bool = True):
+            if not is_root:
+                # Do not descend into nested functions or classes
+                if isinstance(current_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    return
+
+            if isinstance(current_node, ast.Call):
+                func = current_node.func
+                callee = None
+                receiver = None
+                is_member = False
+
                 if isinstance(func, ast.Name):
-                    calls.append(func.id)
+                    callee = func.id
+                    receiver = None
+                    is_member = False
                 elif isinstance(func, ast.Attribute):
-                    calls.append(func.attr)
-        # Deduplicate preserving order
-        seen = set()
-        unique_calls = []
-        for c in calls:
-            if c not in seen:
-                seen.add(c)
-                unique_calls.append(c)
-        return unique_calls
+                    callee = func.attr
+                    is_member = True
+                    try:
+                        receiver = ast.unparse(func.value)
+                    except Exception:
+                        receiver = getattr(func.value, "id", getattr(func.value, "attr", None))
+
+                if callee:
+                    call_names.append(callee)
+                    call_refs.append(CallReference(callee=callee, receiver=receiver, is_member=is_member))
+                    if callee[0].isupper() and not callee.isupper():
+                        instantiations.append(callee)
+                    elif receiver and receiver[0].isupper() and not receiver.isupper():
+                        instantiations.append(receiver)
+
+            if isinstance(current_node, ast.AnnAssign) and current_node.annotation:
+                extract_types_from_annotation(current_node.annotation)
+
+            for child in ast.iter_child_nodes(current_node):
+                walk_scope(child, is_root=False)
+
+        walk_scope(node, is_root=True)
+
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            all_args = getattr(node.args, "posonlyargs", []) + node.args.args + getattr(node.args, "kwonlyargs", [])
+            for arg in all_args:
+                if arg.annotation:
+                    extract_types_from_annotation(arg.annotation)
+            if node.returns:
+                extract_types_from_annotation(node.returns)
+
+        unique_call_names = list(dict.fromkeys(call_names))
+        seen_refs = set()
+        unique_call_refs = []
+        for cr in call_refs:
+            key = (cr.callee, cr.receiver)
+            if key not in seen_refs:
+                seen_refs.add(key)
+                unique_call_refs.append(cr)
+
+        unique_instantiations = list(dict.fromkeys(instantiations))
+        unique_type_refs = list(dict.fromkeys(type_refs))
+
+        return unique_call_names, unique_call_refs, unique_instantiations, unique_type_refs
+
+    def _extract_calls_from_node(self, node: ast.AST) -> list[str]:
+        return self._extract_calls_and_refs(node)[0]
 
     def _format_arg(self, arg: ast.arg) -> str:
         annotation = ""
@@ -259,7 +348,7 @@ class _PythonVisitor(ast.NodeVisitor):
         base_str = f"({', '.join(bases)})" if bases else ""
         signature = f"class {node.name}{base_str}:"
 
-        calls = self._extract_calls_from_node(node)
+        calls, call_refs, instantiations, type_refs = self._extract_calls_and_refs(node)
 
         self.symbols.append(
             ParsedSymbol(
@@ -273,6 +362,9 @@ class _PythonVisitor(ast.NodeVisitor):
                 decorators=decorators,
                 parent=prev_class,
                 calls=calls,
+                call_refs=call_refs,
+                type_references=type_refs,
+                instantiations=instantiations,
                 extends=bases,
                 visibility="private" if node.name.startswith("_") and not node.name.startswith("__") else "public",
             )
@@ -304,7 +396,7 @@ class _PythonVisitor(ast.NodeVisitor):
 
         start_line = node.lineno
         end_line = getattr(node, "end_lineno", node.lineno)
-        calls = self._extract_calls_from_node(node)
+        calls, call_refs, instantiations, type_refs = self._extract_calls_and_refs(node)
 
         symbol_type = "method" if self.current_class else "function"
         visibility = "private" if node.name.startswith("_") and not (node.name.startswith("__") and node.name.endswith("__")) else "public"
@@ -321,6 +413,9 @@ class _PythonVisitor(ast.NodeVisitor):
                 decorators=decorators,
                 parent=self.current_class,
                 calls=calls,
+                call_refs=call_refs,
+                type_references=type_refs,
+                instantiations=instantiations,
                 extends=[],
                 visibility=visibility,
             )
@@ -1002,6 +1097,10 @@ class ASTParser:
                     )
                 ],
             )
+
+    @classmethod
+    def parse_code(cls, file_path: str, code: str, language: Optional[str] = None) -> FileASTResult:
+        return cls.parse_file(file_path, code=code)
 
     @classmethod
     def parse_files(cls, file_paths: list[str | Path]) -> list[FileASTResult]:
