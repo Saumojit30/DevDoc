@@ -24,6 +24,11 @@ def _ast_graph_path(dataset: str) -> Path:
     return p / f"{dataset}.json"
 
 def save_ast_graph(dataset: str, nodes: list[dict], edges: list[dict]) -> None:
+    try:
+        from graph_topology import GraphTopologyEngine
+        nodes, edges = GraphTopologyEngine.enrich_graph(nodes, edges)
+    except Exception:
+        pass
     path = _ast_graph_path(dataset)
     temp = path.with_suffix(".tmp")
     with open(temp, "w", encoding="utf-8") as f:

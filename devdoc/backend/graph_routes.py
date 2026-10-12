@@ -160,6 +160,9 @@ async def get_graph_data(req: GraphDataRequest):
                 "properties": safe_props,
             })
 
+        from graph_topology import GraphTopologyEngine
+        node_list, edge_list = GraphTopologyEngine.enrich_graph(node_list, edge_list)
+
         return {
             "dataset": dataset,
             "nodes": node_list,
