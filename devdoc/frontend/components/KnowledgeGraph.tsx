@@ -20,6 +20,13 @@ interface SimNode extends GraphNode {
   symbolCount?: number
   inboundCouplings?: number
   outboundCouplings?: number
+  // Topology and community properties
+  community_id?: number
+  community_name?: string
+  is_god_node?: boolean
+  degree?: number
+  degree_centrality?: number
+  betweenness_centrality?: number
 }
 
 interface SimLink {
@@ -106,11 +113,88 @@ function getNodeGlyph(type: string): string {
   }
 }
 
-function getNodeRadius(type: string) {
-  if (type === "Module" || type === "Class" || type === "Document") return 14
-  if (type === "Function" || type === "Interface" || type === "Struct") return 12
-  if (type === "Method" || type === "DocumentChunk" || type === "Trait" || type === "Type") return 11
-  return 10
+function getNodeRadius(type: string, node?: any): number {
+  let base = 10
+  if (type === "Module" || type === "Class" || type === "Document") base = 14
+  else if (type === "Function" || type === "Interface" || type === "Struct") base = 12
+  else if (type === "Method" || type === "DocumentChunk" || type === "Trait" || type === "Type") base = 11
+
+  if (!node) return base
+
+  const deg = node.properties?.degree ?? node.degree ?? 0
+  const isGod = Boolean(node.properties?.is_god_node ?? node.is_god_node ?? (deg >= 12))
+  const degBonus = Math.min(10, Math.sqrt(deg) * 2)
+  return isGod ? base + degBonus + 4 : base + degBonus
+}
+
+const COMMUNITY_PALETTE = [
+  { fill: "rgba(56, 189, 248, 0.08)", stroke: "rgba(56, 189, 248, 0.35)", badge: "#38bdf8" }, // cyan
+  { fill: "rgba(129, 140, 248, 0.08)", stroke: "rgba(129, 140, 248, 0.35)", badge: "#818cf8" }, // indigo
+  { fill: "rgba(16, 185, 129, 0.08)", stroke: "rgba(16, 185, 129, 0.35)", badge: "#10b981" }, // emerald
+  { fill: "rgba(245, 158, 11, 0.08)", stroke: "rgba(245, 158, 11, 0.35)", badge: "#f59e0b" }, // amber
+  { fill: "rgba(236, 72, 153, 0.08)", stroke: "rgba(236, 72, 153, 0.35)", badge: "#ec4899" }, // pink
+  { fill: "rgba(168, 85, 247, 0.08)", stroke: "rgba(168, 85, 247, 0.35)", badge: "#a855f7" }, // purple
+  { fill: "rgba(20, 184, 166, 0.08)", stroke: "rgba(20, 184, 166, 0.35)", badge: "#14b8a6" }, // teal
+  { fill: "rgba(249, 115, 22, 0.08)", stroke: "rgba(249, 115, 22, 0.35)", badge: "#f97316" }, // orange
+]
+
+interface CommunityHullData {
+  communityId: number
+  communityName: string
+  pathD: string
+  centroid: [number, number]
+}
+
+function computeCommunityHulls(nodes: SimNode[], isArch: boolean): CommunityHullData[] {
+  const commMap = new Map<number, { name: string; nodes: SimNode[] }>()
+  for (const n of nodes) {
+    const cId = n.properties?.community_id ?? n.community_id ?? 0
+    const cName = n.properties?.community_name || n.community_name || `Cluster ${cId}`
+    if (!commMap.has(cId)) {
+      commMap.set(cId, { name: cName, nodes: [] })
+    }
+    commMap.get(cId)!.nodes.push(n)
+  }
+
+  const results: CommunityHullData[] = []
+  const hullLine = d3.line<[number, number]>().curve(d3.curveCatmullRomClosed)
+
+  commMap.forEach(({ name, nodes: cNodes }, cId) => {
+    if (cNodes.length === 0) return
+    const pts: [number, number][] = []
+    const pad = isArch ? 90 : 38
+    const angles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4]
+
+    for (const node of cNodes) {
+      if (typeof node.x !== "number" || typeof node.y !== "number") continue
+      for (const a of angles) {
+        pts.push([node.x + pad * Math.cos(a), node.y + pad * Math.sin(a)])
+      }
+    }
+
+    if (pts.length < 3) return
+    const hull = d3.polygonHull(pts)
+    if (!hull || hull.length < 3) return
+
+    const cx = d3.mean(hull, (p) => p[0]) || 0
+    const cy = d3.mean(hull, (p) => p[1]) || 0
+    const expanded: [number, number][] = hull.map(([px, py]) => [
+      cx + (px - cx) * 1.2,
+      cy + (py - cy) * 1.2,
+    ])
+
+    const pathD = hullLine(expanded)
+    if (pathD) {
+      results.push({
+        communityId: cId,
+        communityName: name,
+        pathD,
+        centroid: [cx, cy],
+      })
+    }
+  })
+
+  return results
 }
 
 function getParentFileId(node: GraphNode): string {
@@ -141,7 +225,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const simRef = useRef<d3.Simulation<SimNode, SimLink> | null>(null)
+  const zoomScaleRef = useRef(1.0)
 
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [rawNodes, setRawNodes] = useState<GraphNode[]>([])
   const [rawEdges, setRawEdges] = useState<GraphEdge[]>([])
   const [loading, setLoading] = useState(true)
@@ -241,14 +327,33 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     }
 
     // Attach aggregated stats to file nodes
-    const archNodes: GraphNode[] = Array.from(fileNodeMap.values()).map(fn => ({
-      ...fn,
-      properties: {
-        ...fn.properties,
-        symbolCount: fileSymbolsCount.get(fn.id) || 1,
-        symbols: (fileSymbolsList.get(fn.id) || []).map(s => ({ id: s.id, label: s.label, type: s.type })),
+    const archNodes: GraphNode[] = Array.from(fileNodeMap.values()).map(fn => {
+      const symList = fileSymbolsList.get(fn.id) || []
+      const bestSym = symList.length > 0 ? symList.reduce((max, s) => {
+        const d1 = s.properties?.degree ?? (s as any).degree ?? 0
+        const d2 = max.properties?.degree ?? (max as any).degree ?? 0
+        return d1 > d2 ? s : max
+      }, symList[0]) : null
+
+      const commId = fn.properties?.community_id ?? (fn as any).community_id ?? bestSym?.properties?.community_id ?? (bestSym as any)?.community_id ?? 0
+      const commName = fn.properties?.community_name || (fn as any).community_name || bestSym?.properties?.community_name || (bestSym as any)?.community_name || fn.label
+      const isGod = Boolean(fn.properties?.is_god_node ?? (fn as any).is_god_node ?? bestSym?.properties?.is_god_node ?? (bestSym as any)?.is_god_node)
+
+      return {
+        ...fn,
+        community_id: commId,
+        community_name: commName,
+        is_god_node: isGod,
+        properties: {
+          ...fn.properties,
+          community_id: commId,
+          community_name: commName,
+          is_god_node: isGod,
+          symbolCount: fileSymbolsCount.get(fn.id) || 1,
+          symbols: symList.map(s => ({ id: s.id, label: s.label, type: s.type })),
+        }
       }
-    }))
+    })
 
     // 2. Collapse internal symbol-to-symbol links into file-to-file couplings
     const nodeLookup = new Map(rawNodes.map(n => [n.id, n]))
@@ -344,7 +449,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.15, 3.5])
-      .on("zoom", (event) => { g.attr("transform", event.transform) })
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform)
+        const k = event.transform.k
+        zoomScaleRef.current = k
+        // Semantic LOD label culling on zoom
+        svg.selectAll<SVGTextElement, SimNode>("g.nodes text.node-label").style("opacity", function(d) {
+          if (!d) return "0"
+          const isGod = Boolean(d.properties?.is_god_node || (d as any).is_god_node || (d.properties?.degree || 0) >= 12)
+          return (isGod || k >= 1.25) ? "1" : "0"
+        })
+      })
     svg.call(zoom)
     zoomRef.current = zoom
 
@@ -370,6 +485,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       isArchFile: graphLevel === "architecture",
       moduleGroup: n.properties?.moduleGroup,
       symbolCount: n.properties?.symbolCount,
+      community_id: n.properties?.community_id ?? (n as any).community_id ?? 0,
+      community_name: n.properties?.community_name || (n as any).community_name,
+      is_god_node: Boolean(n.properties?.is_god_node ?? (n as any).is_god_node ?? false),
+      degree: n.properties?.degree ?? (n as any).degree ?? 0,
+      degree_centrality: n.properties?.degree_centrality ?? (n as any).degree_centrality ?? 0,
+      betweenness_centrality: n.properties?.betweenness_centrality ?? (n as any).betweenness_centrality ?? 0,
     }))
 
     const simLinks: SimLink[] = filteredEdges.map((e) => ({
@@ -377,12 +498,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       isArchLink: graphLevel === "architecture"
     }))
 
-    // 1. Links Rendering (Directional Bezier / Straight Lines)
+    // 0. Community Convex Bubble Hulls (Background layer)
+    const hullGroup = g.append("g").attr("class", "community-hulls")
+
+    // 1. Links Rendering (Curved Quadratic Bezier paths)
     const linkGroup = g.append("g").attr("class", "links")
     const link = linkGroup
-      .selectAll<SVGLineElement, SimLink>("line")
+      .selectAll<SVGPathElement, SimLink>("path.edge-path")
       .data(simLinks)
-      .join("line")
+      .join("path")
+      .attr("class", "edge-path")
+      .attr("fill", "none")
       .attr("stroke", (d) => {
         if (d.relation.includes("IMPORTS")) return PALETTE.links.imports
         if (d.relation.includes("CALLS")) return PALETTE.links.calls
@@ -423,6 +549,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .data(simNodes)
       .join("g")
       .attr("cursor", "pointer")
+      .on("mouseenter", (event, d) => {
+        setHoveredNodeId(d.id)
+      })
+      .on("mouseleave", () => {
+        setHoveredNodeId(null)
+      })
       .on("click", (event, d) => {
         event.stopPropagation()
         const original = displayNodes.find((n) => n.id === d.id)
@@ -503,17 +635,31 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("pointer-events", "none")
 
     } else {
-      // DEEP SYMBOL CIRCULAR NODE (Refined Jewel-Tones)
+      // DEEP SYMBOL CIRCULAR NODE (Centrality scaling & God Node indicator)
+      // God Node Outer Halo Ring
+      nodeGroup.filter((d) => Boolean(d.properties?.is_god_node || (d as any).is_god_node))
+        .append("circle")
+        .attr("class", "god-halo")
+        .attr("r", (d) => getNodeRadius(d.type, d) + 6)
+        .attr("fill", "none")
+        .attr("stroke", "#38bdf8")
+        .attr("stroke-width", 1.5)
+        .attr("stroke-dasharray", "3, 3")
+        .style("filter", "drop-shadow(0 0 8px #38bdf8)")
+        .attr("pointer-events", "none")
+
       nodeGroup.append("circle")
-        .attr("r", (d) => getNodeRadius(d.type))
+        .attr("r", (d) => getNodeRadius(d.type, d))
         .attr("fill", (d) => getNodeStyle(d.type).fill)
-        .attr("stroke", (d) => getNodeStyle(d.type).stroke)
-        .attr("stroke-width", 2)
-        .style("filter", (d) =>
-          d.type === "Module" || d.type === "Class"
+        .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : getNodeStyle(d.type).stroke)
+        .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 2)
+        .style("filter", (d) => {
+          const isGod = d.properties?.is_god_node || (d as any).is_god_node
+          if (isGod) return "drop-shadow(0 0 14px rgba(56, 189, 248, 0.6))"
+          return d.type === "Module" || d.type === "Class"
             ? `drop-shadow(0 0 10px ${getNodeStyle(d.type).stroke}40)`
-            : `drop-shadow(0 0 4px ${getNodeStyle(d.type).stroke}20)`,
-        )
+            : `drop-shadow(0 0 4px ${getNodeStyle(d.type).stroke}20)`
+        })
 
       nodeGroup.append("text")
         .attr("class", "node-glyph")
@@ -529,10 +675,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       nodeGroup.append("text")
         .attr("class", "node-label")
         .text((d) => (d.label.length > 24 ? d.label.slice(0, 22) + "…" : d.label))
-        .attr("dx", (d) => getNodeRadius(d.type) + 8)
+        .attr("dx", (d) => getNodeRadius(d.type, d) + 8)
         .attr("dy", "0.35em")
-        .attr("fill", "#e2e8f0")
-        .attr("font-size", 9.5)
+        .attr("fill", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#f8fafc" : "#cbd5e1")
+        .attr("font-size", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 10.5 : 9.5)
+        .attr("font-weight", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 700 : 500)
         .attr("font-family", "JetBrains Mono, monospace")
         .attr("pointer-events", "none")
     }
@@ -555,32 +702,111 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     nodeGroup.call(drag)
 
     // Force Simulation configuration
-    const linkDistance = graphLevel === "architecture" ? 240 : 120
-    const chargeStrength = graphLevel === "architecture" ? -650 : -180
+    const linkDistance = graphLevel === "architecture" ? 240 : 130
+    const chargeStrength = graphLevel === "architecture" ? -650 : -200
 
     const sim = d3.forceSimulation(simNodes)
       .force("link", d3.forceLink<SimNode, SimLink>(simLinks)
         .id((d) => d.id)
         .distance(linkDistance)
         .strength(0.25))
-      .force("charge", d3.forceManyBody().strength(chargeStrength).distanceMax(900))
+      .force("charge", d3.forceManyBody().strength(chargeStrength).distanceMax(950))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collision", d3.forceCollide<SimNode>().radius((d) =>
-        graphLevel === "architecture" ? 115 : getNodeRadius(d.type) + 24
+        graphLevel === "architecture" ? 115 : getNodeRadius(d.type, d) + 24
       ))
       .alphaDecay(0.02)
-      .on("tick", () => {
-        link
-          .attr("x1", (d) => (d.source as SimNode).x)
-          .attr("y1", (d) => (d.source as SimNode).y)
-          .attr("x2", (d) => (d.target as SimNode).x)
-          .attr("y2", (d) => (d.target as SimNode).y)
-        linkLabel
-          .attr("x", (d) => ((d.source as SimNode).x + (d.target as SimNode).x) / 2)
-          .attr("y", (d) => ((d.source as SimNode).y + (d.target as SimNode).y) / 2)
-        nodeGroup.attr("transform", (d) => `translate(${d.x},${d.y})`)
+
+    // Zero-Wobble Off-screen Pre-stabilization (settle 140 ticks before canvas paint)
+    sim.stop()
+    for (let i = 0; i < 140; ++i) {
+      sim.tick()
+    }
+
+    const updatePositions = () => {
+      // 1. Update Community Hulls
+      const hulls = computeCommunityHulls(simNodes, graphLevel === "architecture")
+      const hullPaths = hullGroup.selectAll<SVGPathElement, CommunityHullData>("path.community-hull")
+        .data(hulls, (d) => d.communityId)
+
+      hullPaths.enter()
+        .append("path")
+        .attr("class", "community-hull")
+        .attr("fill", (d) => COMMUNITY_PALETTE[d.communityId % COMMUNITY_PALETTE.length].fill)
+        .attr("stroke", (d) => COMMUNITY_PALETTE[d.communityId % COMMUNITY_PALETTE.length].stroke)
+        .attr("stroke-width", 1.5)
+        .attr("stroke-dasharray", "4, 4")
+        .attr("pointer-events", "none")
+        .merge(hullPaths)
+        .attr("d", (d) => d.pathD)
+
+      hullPaths.exit().remove()
+
+      const hullLabels = hullGroup.selectAll<SVGTextElement, CommunityHullData>("text.community-label")
+        .data(hulls, (d) => d.communityId)
+
+      hullLabels.enter()
+        .append("text")
+        .attr("class", "community-label")
+        .attr("fill", (d) => COMMUNITY_PALETTE[d.communityId % COMMUNITY_PALETTE.length].badge)
+        .attr("font-size", 9.5)
+        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-weight", "600")
+        .attr("text-anchor", "middle")
+        .attr("opacity", 0.65)
+        .attr("pointer-events", "none")
+        .merge(hullLabels)
+        .attr("x", (d) => d.centroid[0])
+        .attr("y", (d) => d.centroid[1] - (graphLevel === "architecture" ? 60 : 45))
+        .text((d) => d.communityName)
+
+      hullLabels.exit().remove()
+
+      // 2. Update Curved Links
+      link.attr("d", (d) => {
+        const s = d.source as SimNode
+        const t = d.target as SimNode
+        const dx = t.x - s.x
+        const dy = t.y - s.y
+        const dist = Math.hypot(dx, dy) || 1
+        const curvature = graphLevel === "architecture" ? 24 : 16
+        const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
+        const cy = (s.y + t.y) / 2 + (dx / dist) * curvature
+        return `M ${s.x} ${s.y} Q ${cx} ${cy} ${t.x} ${t.y}`
       })
 
+      // 3. Update Link Labels
+      linkLabel
+        .attr("x", (d) => {
+          const s = d.source as SimNode
+          const t = d.target as SimNode
+          const dx = t.x - s.x
+          const dy = t.y - s.y
+          const dist = Math.hypot(dx, dy) || 1
+          const curvature = graphLevel === "architecture" ? 24 : 16
+          const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
+          return 0.25 * (s.x + t.x) + 0.5 * cx
+        })
+        .attr("y", (d) => {
+          const s = d.source as SimNode
+          const t = d.target as SimNode
+          const dx = t.x - s.x
+          const dy = t.y - s.y
+          const dist = Math.hypot(dx, dy) || 1
+          const curvature = graphLevel === "architecture" ? 24 : 16
+          const cy = (s.y + t.y) / 2 + (dx / dist) * curvature
+          return 0.25 * (s.y + t.y) + 0.5 * cy
+        })
+
+      // 4. Update Node Positions
+      nodeGroup.attr("transform", (d) => `translate(${d.x},${d.y})`)
+    }
+
+    // Initial render at settled coordinates
+    updatePositions()
+
+    sim.on("tick", updatePositions)
+    sim.alpha(0.04).restart()
     simRef.current = sim
 
     return () => { sim.stop() }
@@ -687,8 +913,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       }
     })
 
-    // Update Link Highlighting & Colors
-    svg.selectAll<SVGLineElement, SimLink>("g.links line").each(function(d: any) {
+    // Update Link Highlighting & Colors (Curved Bezier Paths)
+    svg.selectAll<SVGPathElement, SimLink>("g.links path.edge-path").each(function(d: any) {
       if (!d || !d.source || !d.target) return
       const sId = typeof d.source === "object" ? d.source.id : d.source
       const tId = typeof d.target === "object" ? d.target.id : d.target
@@ -697,7 +923,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
       const isOutboundFromFocus = sId === selectedNodeId
       const isInboundToFocus = tId === selectedNodeId
-      const isConnected = isOutboundFromFocus || isInboundToFocus
 
       const matchesSearch = !q || (d.source.label?.toLowerCase().includes(q) || d.target.label?.toLowerCase().includes(q))
       const matchesType = !hiddenTypes.has(sType) && !hiddenTypes.has(tType)
@@ -748,7 +973,24 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
       d3.select(this).style("opacity", String(labelOpacity))
     })
-  }, [searchQuery, hiddenTypes, selectedNodeId, displayNodes, displayEdges, graphLevel])
+
+    // Update Semantic LOD Label Visibility
+    svg.selectAll<SVGTextElement, SimNode>("g.nodes text.node-label").style("opacity", function(d: any) {
+      if (!d) return "0"
+      const isGod = Boolean(d.properties?.is_god_node || d.is_god_node || (d.properties?.degree || 0) >= 12)
+      const isSelected = d.id === selectedNodeId
+      const isHovered = d.id === hoveredNodeId
+      const isUpstream = upstreamIds.has(d.id)
+      const isDownstream = downstreamIds.has(d.id)
+      const matchesSearch = Boolean(q && d.label?.toLowerCase().includes(q))
+      const isZoomed = zoomScaleRef.current >= 1.25
+
+      if (isGod || isSelected || isHovered || isUpstream || isDownstream || matchesSearch || isZoomed) {
+        return "1"
+      }
+      return "0"
+    })
+  }, [searchQuery, hiddenTypes, selectedNodeId, hoveredNodeId, displayNodes, displayEdges, graphLevel])
 
   useEffect(() => {
     if (viewMode !== "cognee") return
@@ -1049,6 +1291,25 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                   <span>{getNodeGlyph(detailNode.type)}</span>
                   {detailNode.type}
                 </span>
+
+                {(detailNode.properties?.is_god_node || (detailNode as any).is_god_node) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-sky-400 bg-sky-950/70 text-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.35)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                    GOD NODE
+                  </span>
+                )}
+
+                {(detailNode.properties?.community_name || (detailNode as any).community_name) && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono text-indigo-300 bg-indigo-950/70 border border-indigo-800/60">
+                    cluster: {detailNode.properties?.community_name || (detailNode as any).community_name}
+                  </span>
+                )}
+
+                {(typeof detailNode.properties?.degree === "number" || typeof (detailNode as any).degree === "number") && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono text-emerald-300 bg-emerald-950/70 border border-emerald-800/60">
+                    deg: {detailNode.properties?.degree ?? (detailNode as any).degree}
+                  </span>
+                )}
 
                 {detailNode.properties?.moduleGroup && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 bg-slate-800/80 border border-slate-700/60">
