@@ -160,7 +160,7 @@ function computeCommunityHulls(nodes: SimNode[], isArch: boolean): CommunityHull
   const hullLine = d3.line<[number, number]>().curve(d3.curveCatmullRomClosed)
 
   commMap.forEach(({ name, nodes: cNodes }, cId) => {
-    if (cNodes.length === 0) return
+    if (cNodes.length < 2) return
     const pts: [number, number][] = []
     const pad = isArch ? 90 : 38
     const angles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4]
@@ -431,7 +431,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       defs.append("marker")
         .attr("id", id)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", graphLevel === "architecture" ? 28 : 22)
+        .attr("refX", 9)
         .attr("refY", 0)
         .attr("markerWidth", 7)
         .attr("markerHeight", 7)
@@ -732,8 +732,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       hullPaths.enter()
         .append("path")
         .attr("class", "community-hull")
-        .attr("fill", (d) => COMMUNITY_PALETTE[d.communityId % COMMUNITY_PALETTE.length].fill)
-        .attr("stroke", (d) => COMMUNITY_PALETTE[d.communityId % COMMUNITY_PALETTE.length].stroke)
+        .attr("fill", (d) => COMMUNITY_PALETTE[Math.abs(d.communityId || 0) % COMMUNITY_PALETTE.length].fill)
+        .attr("stroke", (d) => COMMUNITY_PALETTE[Math.abs(d.communityId || 0) % COMMUNITY_PALETTE.length].stroke)
         .attr("stroke-width", 1.5)
         .attr("stroke-dasharray", "4, 4")
         .attr("pointer-events", "none")
@@ -748,7 +748,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       hullLabels.enter()
         .append("text")
         .attr("class", "community-label")
-        .attr("fill", (d) => COMMUNITY_PALETTE[d.communityId % COMMUNITY_PALETTE.length].badge)
+        .attr("fill", (d) => COMMUNITY_PALETTE[Math.abs(d.communityId || 0) % COMMUNITY_PALETTE.length].badge)
         .attr("font-size", 9.5)
         .attr("font-family", "JetBrains Mono, monospace")
         .attr("font-weight", "600")
@@ -763,16 +763,58 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       hullLabels.exit().remove()
 
       // 2. Update Curved Links
-      link.attr("d", (d) => {
+      link.attr("d", (d, idx) => {
         const s = d.source as SimNode
         const t = d.target as SimNode
+        if (!s || !t || typeof s.x !== "number" || typeof t.x !== "number") return ""
+
         const dx = t.x - s.x
         const dy = t.y - s.y
         const dist = Math.hypot(dx, dy) || 1
-        const curvature = graphLevel === "architecture" ? 24 : 16
+        const baseCurv = graphLevel === "architecture" ? 26 : 18
+        // Alternating curve offset for parallel edges between the same nodes
+        const pairFactor = (idx % 2 === 1) ? 1.35 : 1.0
+        const curvature = baseCurv * pairFactor
+
         const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
         const cy = (s.y + t.y) / 2 + (dx / dist) * curvature
-        return `M ${s.x} ${s.y} Q ${cx} ${cy} ${t.x} ${t.y}`
+
+        let startX = s.x
+        let startY = s.y
+        let endX = t.x
+        let endY = t.y
+
+        if (graphLevel === "architecture") {
+          const hw = 152 / 2
+          const hh = 46 / 2
+          const ux = cx - s.x
+          const uy = cy - s.y
+          const scaleS = Math.min(Math.abs(ux) > 0 ? hw / Math.abs(ux) : 999, Math.abs(uy) > 0 ? hh / Math.abs(uy) : 999)
+          startX = s.x + ux * Math.min(scaleS, 1.0)
+          startY = s.y + uy * Math.min(scaleS, 1.0)
+
+          const vx = t.x - cx
+          const vy = t.y - cy
+          const scaleT = Math.min(Math.abs(vx) > 0 ? (hw + 6) / Math.abs(vx) : 999, Math.abs(vy) > 0 ? (hh + 6) / Math.abs(vy) : 999)
+          endX = t.x - vx * Math.min(scaleT, 1.0)
+          endY = t.y - vy * Math.min(scaleT, 1.0)
+        } else {
+          const rS = getNodeRadius(s.type, s)
+          const ux = cx - s.x
+          const uy = cy - s.y
+          const ulen = Math.hypot(ux, uy) || 1
+          startX = s.x + (ux / ulen) * rS
+          startY = s.y + (uy / ulen) * rS
+
+          const rT = getNodeRadius(t.type, t) + 4
+          const vx = t.x - cx
+          const vy = t.y - cy
+          const vlen = Math.hypot(vx, vy) || 1
+          endX = t.x - (vx / vlen) * rT
+          endY = t.y - (vy / vlen) * rT
+        }
+
+        return `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`
       })
 
       // 3. Update Link Labels

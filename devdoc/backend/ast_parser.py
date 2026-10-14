@@ -38,12 +38,14 @@ class CallReference:
     callee: str
     receiver: Optional[str] = None
     is_member: bool = False
+    receiver_type: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "callee": self.callee,
             "receiver": self.receiver,
             "is_member": self.is_member,
+            "receiver_type": self.receiver_type,
         }
 
 
@@ -136,26 +138,93 @@ class _PythonVisitor(ast.NodeVisitor):
         call_refs = []
         instantiations = []
         type_refs = []
+        local_var_types: dict[str, str] = {}
 
         TYPE_IGNORE = {
             "int", "str", "float", "bool", "list", "dict", "set", "tuple",
             "Optional", "Union", "Any", "Callable", "None", "bytes", "object",
         }
 
-        def extract_types_from_annotation(ann_node: ast.AST):
-            for sn in ast.walk(ann_node):
-                if isinstance(sn, ast.Name):
-                    if sn.id not in TYPE_IGNORE and sn.id not in type_refs:
-                        type_refs.append(sn.id)
-                elif isinstance(sn, ast.Attribute):
-                    if sn.attr not in TYPE_IGNORE and sn.attr not in type_refs:
-                        type_refs.append(sn.attr)
+        def extract_types_from_annotation(ann_node: Optional[ast.AST]):
+            if ann_node is None:
+                return
+            if isinstance(ann_node, ast.Name):
+                if ann_node.id not in TYPE_IGNORE and ann_node.id not in type_refs:
+                    type_refs.append(ann_node.id)
+            elif isinstance(ann_node, ast.Attribute):
+                if ann_node.attr not in TYPE_IGNORE and ann_node.attr not in type_refs:
+                    type_refs.append(ann_node.attr)
+            elif isinstance(ann_node, ast.Subscript):
+                extract_types_from_annotation(ann_node.value)
+                extract_types_from_annotation(ann_node.slice)
+            elif isinstance(ann_node, ast.BinOp):
+                extract_types_from_annotation(ann_node.left)
+                extract_types_from_annotation(ann_node.right)
+            elif isinstance(ann_node, ast.Tuple):
+                for elt in ann_node.elts:
+                    extract_types_from_annotation(elt)
+            elif isinstance(ann_node, ast.Constant):
+                if isinstance(ann_node.value, str) and ann_node.value not in TYPE_IGNORE and ann_node.value not in type_refs:
+                    type_refs.append(ann_node.value)
+
+        # Pre-populate local_var_types from function parameter type annotations
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            all_args = getattr(node.args, "posonlyargs", []) + node.args.args + getattr(node.args, "kwonlyargs", [])
+            for arg in all_args:
+                if arg.annotation:
+                    ann_type = None
+                    if isinstance(arg.annotation, ast.Name):
+                        ann_type = arg.annotation.id
+                    elif isinstance(arg.annotation, ast.Attribute):
+                        ann_type = arg.annotation.attr
+                    elif isinstance(arg.annotation, ast.Constant) and isinstance(arg.annotation.value, str):
+                        ann_type = arg.annotation.value
+                    if ann_type and ann_type not in TYPE_IGNORE:
+                        local_var_types[arg.arg] = ann_type
 
         def walk_scope(current_node: ast.AST, is_root: bool = True):
             if not is_root:
                 # Do not descend into nested functions or classes
                 if isinstance(current_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     return
+
+            # Track variable assignments: e.g. service = CogneeService()
+            if isinstance(current_node, ast.Assign):
+                assigned_type = None
+                if isinstance(current_node.value, ast.Call):
+                    f = current_node.value.func
+                    if isinstance(f, ast.Name) and f.id and f.id[0].isupper():
+                        assigned_type = f.id
+                    elif isinstance(f, ast.Attribute) and f.attr and f.attr[0].isupper():
+                        assigned_type = f.attr
+                if assigned_type:
+                    for target in current_node.targets:
+                        if isinstance(target, ast.Name):
+                            local_var_types[target.id] = assigned_type
+                        elif isinstance(target, ast.Attribute):
+                            try:
+                                local_var_types[ast.unparse(target)] = assigned_type
+                            except Exception:
+                                pass
+
+            if isinstance(current_node, ast.AnnAssign):
+                if current_node.annotation:
+                    extract_types_from_annotation(current_node.annotation)
+                    ann_type = None
+                    if isinstance(current_node.annotation, ast.Name):
+                        ann_type = current_node.annotation.id
+                    elif isinstance(current_node.annotation, ast.Attribute):
+                        ann_type = current_node.annotation.attr
+                    elif isinstance(current_node.annotation, ast.Constant) and isinstance(current_node.annotation.value, str):
+                        ann_type = current_node.annotation.value
+                    if ann_type and ann_type not in TYPE_IGNORE:
+                        if isinstance(current_node.target, ast.Name):
+                            local_var_types[current_node.target.id] = ann_type
+                        elif isinstance(current_node.target, ast.Attribute):
+                            try:
+                                local_var_types[ast.unparse(current_node.target)] = ann_type
+                            except Exception:
+                                pass
 
             if isinstance(current_node, ast.Call):
                 func = current_node.func
@@ -175,16 +244,23 @@ class _PythonVisitor(ast.NodeVisitor):
                     except Exception:
                         receiver = getattr(func.value, "id", getattr(func.value, "attr", None))
 
+                receiver_type = None
+                if receiver:
+                    receiver_type = local_var_types.get(receiver)
+
                 if callee:
                     call_names.append(callee)
-                    call_refs.append(CallReference(callee=callee, receiver=receiver, is_member=is_member))
-                    if callee[0].isupper() and not callee.isupper():
+                    call_refs.append(
+                        CallReference(
+                            callee=callee,
+                            receiver=receiver,
+                            is_member=is_member,
+                            receiver_type=receiver_type,
+                        )
+                    )
+                    # Class instantiation: e.g. Engine() or DatabaseConnection()
+                    if callee[0].isupper():
                         instantiations.append(callee)
-                    elif receiver and receiver[0].isupper() and not receiver.isupper():
-                        instantiations.append(receiver)
-
-            if isinstance(current_node, ast.AnnAssign) and current_node.annotation:
-                extract_types_from_annotation(current_node.annotation)
 
             for child in ast.iter_child_nodes(current_node):
                 walk_scope(child, is_root=False)
@@ -203,7 +279,7 @@ class _PythonVisitor(ast.NodeVisitor):
         seen_refs = set()
         unique_call_refs = []
         for cr in call_refs:
-            key = (cr.callee, cr.receiver)
+            key = (cr.callee, cr.receiver, cr.receiver_type)
             if key not in seen_refs:
                 seen_refs.add(key)
                 unique_call_refs.append(cr)

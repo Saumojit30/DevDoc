@@ -58,8 +58,13 @@ class GraphTopologyEngine:
             logger.warning(f"Failed to calculate degree centrality: {exc}")
             deg_centrality = {n: 0.0 for n in G.nodes()}
 
+        # Compute distance attribute for shortest path betweenness (distance = 1 / weight)
+        for _, _, d in G.edges(data=True):
+            edge_w = float(d.get("weight", 1.0) or 1.0)
+            d["distance"] = 1.0 / max(edge_w, 0.001)
+
         try:
-            bet_centrality = nx.betweenness_centrality(G, weight="weight")
+            bet_centrality = nx.betweenness_centrality(G, weight="distance")
         except Exception as exc:
             logger.warning(f"Failed to calculate betweenness centrality: {exc}")
             bet_centrality = {n: 0.0 for n in G.nodes()}
@@ -75,6 +80,8 @@ class GraphTopologyEngine:
         # Assign community IDs and derive community names from the highest-degree hub node
         node_to_comm: dict[str, tuple[int, str]] = {}
         for comm_idx, comm_nodes in enumerate(communities):
+            if not comm_nodes:
+                continue
             hub_id = max(comm_nodes, key=lambda nid: (G.degree(nid), str(nid)))
             hub_node = node_map.get(hub_id)
             hub_name = None

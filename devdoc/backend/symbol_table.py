@@ -170,6 +170,16 @@ class SymbolTable:
                                 if other_sym.parent == sym.parent and other_sym.name == callee and other_id != sym_id:
                                     target_id = other_id
                                     break
+                            # Inherited method from base class in same file
+                            if not target_id:
+                                class_id = f"{file_path}::{sym.parent}"
+                                parent_class_sym = self.symbols.get(class_id)
+                                if parent_class_sym and parent_class_sym.extends:
+                                    for other_id in self.file_to_symbols.get(file_path, []):
+                                        other_sym = self.symbols[other_id]
+                                        if other_sym.parent in parent_class_sym.extends and other_sym.name == callee and other_id != sym_id:
+                                            target_id = other_id
+                                            break
                         if not target_id and receiver is None:
                             for other_id in self.file_to_symbols.get(file_path, []):
                                 other_sym = self.symbols[other_id]
@@ -179,50 +189,60 @@ class SymbolTable:
 
                     # --- TIER 2: Import-aware receiver matching & cross-file resolution ---
                     if not target_id:
-                        if receiver:
+                        receiver_type = getattr(call_ref, "receiver_type", None)
+                        receivers_to_check = [r for r in (receiver, receiver_type) if r and r not in ("self", "cls")]
+
+                        for rcv in receivers_to_check:
                             # 1. Check if receiver matches an imported symbol or alias
                             for imp in f_res.imports:
-                                matched_sym = None
-                                if receiver in imp.imported_symbols:
-                                    matched_sym = receiver
-                                elif receiver in imp.alias_map.values():
-                                    for orig, alias in imp.alias_map.items():
-                                        if alias == receiver:
-                                            matched_sym = orig
-                                            break
-                                elif receiver == imp.module or receiver == imp.module.split(".")[-1]:
-                                    matched_sym = callee
+                                matched_class = None
+                                is_module_call = False
 
-                                if matched_sym:
+                                if rcv in imp.imported_symbols:
+                                    matched_class = rcv
+                                elif rcv in imp.alias_map.values():
+                                    for orig, alias in imp.alias_map.items():
+                                        if alias == rcv:
+                                            matched_class = orig
+                                            break
+                                elif rcv == imp.module or rcv == imp.module.split(".")[-1]:
+                                    is_module_call = True
+
+                                if matched_class or is_module_call:
                                     tgt_file = self.resolve_target_file(file_path, imp)
                                     if tgt_file:
                                         for other_id in self.file_to_symbols.get(tgt_file, []):
                                             other_sym = self.symbols[other_id]
-                                            # Match member method in imported class
-                                            if other_sym.parent == matched_sym and other_sym.name == callee:
-                                                target_id = other_id
-                                                break
-                                            # Or direct function matching callee
-                                            if other_sym.name == callee:
-                                                target_id = other_id
-                                                break
+                                            if matched_class:
+                                                # Match member method in imported class
+                                                if other_sym.parent == matched_class and other_sym.name == callee:
+                                                    target_id = other_id
+                                                    break
+                                            elif is_module_call:
+                                                # Match top-level function in imported module
+                                                if other_sym.parent is None and other_sym.name == callee:
+                                                    target_id = other_id
+                                                    break
                                     if target_id:
                                         break
 
                             # 2. Check if receiver is a known class in the global symbol table
-                            if not target_id and receiver in self.symbols_by_name:
-                                for class_sym_id in self.symbols_by_name[receiver]:
+                            if not target_id and rcv in self.symbols_by_name:
+                                for class_sym_id in self.symbols_by_name[rcv]:
                                     class_file = self.symbol_id_to_file.get(class_sym_id)
                                     if class_file:
                                         for other_id in self.file_to_symbols.get(class_file, []):
                                             other_sym = self.symbols[other_id]
-                                            if other_sym.parent == receiver and other_sym.name == callee:
+                                            if other_sym.parent == rcv and other_sym.name == callee:
                                                 target_id = other_id
                                                 break
                                     if target_id:
                                         break
 
-                        else:
+                            if target_id:
+                                break
+
+                        if not target_id and not receivers_to_check:
                             # Receiver is None, but callee might be explicitly imported
                             for imp in f_res.imports:
                                 if callee in imp.imported_symbols or callee in imp.alias_map.values():
@@ -237,9 +257,16 @@ class SymbolTable:
 
                     # --- Fallback: Global unique match ---
                     if not target_id and callee in self.symbols_by_name:
-                        candidates = [cid for cid in self.symbols_by_name[callee] if cid != sym_id]
-                        if len(candidates) == 1:
-                            target_id = candidates[0]
+                        is_module_receiver = bool(receiver and any(
+                            receiver == imp.module or receiver == imp.module.split(".")[-1]
+                            for imp in f_res.imports
+                        ))
+                        if not is_module_receiver:
+                            candidates = [cid for cid in self.symbols_by_name[callee] if cid != sym_id]
+                            if len(candidates) == 1:
+                                cand_sym = self.symbols[candidates[0]]
+                                if not receiver or cand_sym.parent is not None:
+                                    target_id = candidates[0]
 
                     if target_id and target_id != sym_id:
                         self.callees_map[sym_id].add(target_id)

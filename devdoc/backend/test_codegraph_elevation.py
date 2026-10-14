@@ -150,6 +150,110 @@ async def parse_response():
         self.assertEqual(call_edges[0]["source"], "async_module.py::fetch_data")
         self.assertEqual(call_edges[0]["target"], "async_module.py::parse_response")
 
+    def test_instance_method_call_with_variable_and_name_collision(self):
+        cognee_code = """
+class CogneeService:
+    def chat(self, project: str, question: str):
+        return "answer"
+"""
+        other_code = """
+def chat():
+    return "other"
+"""
+        main_code = """
+from cognee_service import CogneeService
+
+def chat(req):
+    service = CogneeService()
+    return service.chat("proj", "query")
+"""
+        res_cognee = ASTParser.parse_code("cognee_service.py", cognee_code, "python")
+        res_other = ASTParser.parse_code("other.py", other_code, "python")
+        res_main = ASTParser.parse_code("main.py", main_code, "python")
+
+        self.st.add_file_result(res_cognee)
+        self.st.add_file_result(res_other)
+        self.st.add_file_result(res_main)
+        nodes, edges = self.st.build_graph()
+
+        call_edges = [e for e in edges if e["relation"] == "CALLS" and e["source"] == "main.py::chat" and e["target"] == "cognee_service.py::CogneeService.chat"]
+        self.assertEqual(len(call_edges), 1)
+
+    def test_parameter_annotated_receiver_call(self):
+        cognee_code = """
+class CogneeService:
+    def chat(self, project: str, question: str):
+        return "answer"
+"""
+        api_code = """
+from cognee_service import CogneeService
+
+def handle_endpoint(service: CogneeService):
+    return service.chat("proj", "query")
+"""
+        res_cognee = ASTParser.parse_code("cognee_service.py", cognee_code, "python")
+        res_api = ASTParser.parse_code("api.py", api_code, "python")
+
+        self.st.add_file_result(res_cognee)
+        self.st.add_file_result(res_api)
+        nodes, edges = self.st.build_graph()
+
+        call_edges = [e for e in edges if e["relation"] == "CALLS" and e["source"] == "api.py::handle_endpoint"]
+        self.assertTrue(any(e["target"] == "cognee_service.py::CogneeService.chat" for e in call_edges))
+
+    def test_inherited_method_call_in_same_file(self):
+        code = """
+class BaseService:
+    def setup(self):
+        pass
+
+class ChildService(BaseService):
+    def run(self):
+        self.setup()
+"""
+        res = ASTParser.parse_code("service.py", code, "python")
+        self.st.add_file_result(res)
+        nodes, edges = self.st.build_graph()
+
+        call_edges = [e for e in edges if e["relation"] == "CALLS" and e["source"] == "service.py::ChildService.run"]
+        self.assertEqual(len(call_edges), 1)
+        self.assertEqual(call_edges[0]["target"], "service.py::BaseService.setup")
+
+    def test_module_call_does_not_match_class_method(self):
+        utils_code = """
+class Formatter:
+    def format_text(self):
+        pass
+"""
+        caller_code = """
+import utils
+
+def execute():
+    utils.format_text()
+"""
+        res_utils = ASTParser.parse_code("utils.py", utils_code, "python")
+        res_caller = ASTParser.parse_code("caller.py", caller_code, "python")
+
+        self.st.add_file_result(res_utils)
+        self.st.add_file_result(res_caller)
+        nodes, edges = self.st.build_graph()
+
+        # utils.format_text() must NOT falsely resolve to Formatter.format_text
+        call_edges = [e for e in edges if e["relation"] == "CALLS" and e["source"] == "caller.py::execute"]
+        self.assertEqual(len(call_edges), 0)
+
+    def test_qualified_type_annotation_no_module_pollution(self):
+        code = """
+def process(req: schemas.ChatRequest) -> models.Result:
+    pass
+"""
+        res = ASTParser.parse_code("worker.py", code, "python")
+        sym = [s for s in res.symbols if s.name == "process"][0]
+        self.assertIn("ChatRequest", sym.type_references)
+        self.assertIn("Result", sym.type_references)
+        self.assertNotIn("schemas", sym.type_references)
+        self.assertNotIn("models", sym.type_references)
+
 
 class TestGraphTopologyEngine(unittest.TestCase):
     def test_community_detection_and_centrality(self):
@@ -237,6 +341,19 @@ class TestGraphTopologyEngine(unittest.TestCase):
         # 2. Non-god node: leaf node
         self.assertFalse(m_deg["D_0"]["is_god_node"])
         self.assertEqual(m_deg["D_0"]["degree"], 1)
+
+    def test_weighted_betweenness_centrality(self):
+        # A and B are strongly coupled (weight 10). C is a weak bystander (weights 1).
+        nodes = [{"id": "A"}, {"id": "B"}, {"id": "C"}]
+        edges = [
+            {"source": "A", "target": "B", "weight": 10.0},
+            {"source": "A", "target": "C", "weight": 1.0},
+            {"source": "C", "target": "B", "weight": 1.0},
+        ]
+        en_nodes, _ = GraphTopologyEngine.enrich_graph(nodes, edges)
+        node_map = {n["id"]: n for n in en_nodes}
+        # C should NOT sit on the shortest path between A and B because A-B coupling is much stronger
+        self.assertEqual(node_map["C"]["betweenness_centrality"], 0.0)
 
 
 if __name__ == "__main__":
