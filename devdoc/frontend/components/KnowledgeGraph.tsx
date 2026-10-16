@@ -14,8 +14,15 @@ interface SimNode extends GraphNode {
   vy: number
   fx?: number | null
   fy?: number | null
-  // Architecture mode properties
+  // Architecture and Hub-and-Spoke properties
   isArchFile?: boolean
+  isHub?: boolean
+  isSatellite?: boolean
+  parentHubId?: string
+  parentHubLabel?: string
+  satelliteIndex?: number
+  satelliteTotal?: number
+  orbitRadius?: number
   moduleGroup?: string
   symbolCount?: number
   inboundCouplings?: number
@@ -36,6 +43,9 @@ interface SimLink {
   weight: number
   properties: Record<string, any>
   isArchLink?: boolean
+  isHighway?: boolean
+  isSpoke?: boolean
+  isIntraSatellite?: boolean
 }
 
 // Enterprise Dark-Mode Palette (Linear / Raycast / GitHub Dependency Graph style)
@@ -75,6 +85,7 @@ const PALETTE = {
     calls: "#475569",
     imports: "#3b82f6",
     extends: "#6366f1",
+    spoke: "rgba(56, 189, 248, 0.35)",
     upstreamActive: "#38bdf8",   // Dependencies (imported by this node)
     downstreamActive: "#fbbf24", // Consumers (imports this node)
     activeUpstream: "#38bdf8",
@@ -89,8 +100,9 @@ function getNodeStyle(type: string) {
 function getNodeGlyph(type: string): string {
   switch (type) {
     case "Function":
-    case "Method":
       return "ƒ"
+    case "Method":
+      return "m"
     case "Class":
     case "Struct":
       return "C"
@@ -114,29 +126,79 @@ function getNodeGlyph(type: string): string {
 }
 
 function getNodeRadius(type: string, node?: any): number {
-  let base = 10
-  if (type === "Module" || type === "Class" || type === "Document") base = 14
-  else if (type === "Function" || type === "Interface" || type === "Struct") base = 12
-  else if (type === "Method" || type === "DocumentChunk" || type === "Trait" || type === "Type") base = 11
+  let base = 9
+  if (type === "Module" || type === "Class" || type === "Document") base = 13
+  else if (type === "Function" || type === "Interface" || type === "Struct") base = 11
+  else if (type === "Method" || type === "DocumentChunk" || type === "Trait" || type === "Type") base = 10
 
   if (!node) return base
 
   const deg = node.properties?.degree ?? node.degree ?? 0
   const isGod = Boolean(node.properties?.is_god_node ?? node.is_god_node ?? (deg >= 12))
-  const degBonus = Math.min(10, Math.sqrt(deg) * 2)
-  return isGod ? base + degBonus + 4 : base + degBonus
+  const degBonus = Math.min(8, Math.sqrt(deg) * 1.5)
+  return isGod ? base + degBonus + 3 : base + degBonus
 }
 
 const COMMUNITY_PALETTE = [
-  { fill: "rgba(56, 189, 248, 0.08)", stroke: "rgba(56, 189, 248, 0.35)", badge: "#38bdf8" }, // cyan
-  { fill: "rgba(129, 140, 248, 0.08)", stroke: "rgba(129, 140, 248, 0.35)", badge: "#818cf8" }, // indigo
-  { fill: "rgba(16, 185, 129, 0.08)", stroke: "rgba(16, 185, 129, 0.35)", badge: "#10b981" }, // emerald
-  { fill: "rgba(245, 158, 11, 0.08)", stroke: "rgba(245, 158, 11, 0.35)", badge: "#f59e0b" }, // amber
-  { fill: "rgba(236, 72, 153, 0.08)", stroke: "rgba(236, 72, 153, 0.35)", badge: "#ec4899" }, // pink
-  { fill: "rgba(168, 85, 247, 0.08)", stroke: "rgba(168, 85, 247, 0.35)", badge: "#a855f7" }, // purple
-  { fill: "rgba(20, 184, 166, 0.08)", stroke: "rgba(20, 184, 166, 0.35)", badge: "#14b8a6" }, // teal
-  { fill: "rgba(249, 115, 22, 0.08)", stroke: "rgba(249, 115, 22, 0.35)", badge: "#f97316" }, // orange
+  { fill: "rgba(56, 189, 248, 0.07)", stroke: "rgba(56, 189, 248, 0.35)", badge: "#38bdf8" }, // cyan
+  { fill: "rgba(129, 140, 248, 0.07)", stroke: "rgba(129, 140, 248, 0.35)", badge: "#818cf8" }, // indigo
+  { fill: "rgba(16, 185, 129, 0.07)", stroke: "rgba(16, 185, 129, 0.35)", badge: "#10b981" }, // emerald
+  { fill: "rgba(245, 158, 11, 0.07)", stroke: "rgba(245, 158, 11, 0.35)", badge: "#f59e0b" }, // amber
+  { fill: "rgba(236, 72, 153, 0.07)", stroke: "rgba(236, 72, 153, 0.35)", badge: "#ec4899" }, // pink
+  { fill: "rgba(168, 85, 247, 0.07)", stroke: "rgba(168, 85, 247, 0.35)", badge: "#a855f7" }, // purple
+  { fill: "rgba(20, 184, 166, 0.07)", stroke: "rgba(20, 184, 166, 0.35)", badge: "#14b8a6" }, // teal
+  { fill: "rgba(249, 115, 22, 0.07)", stroke: "rgba(249, 115, 22, 0.35)", badge: "#f97316" }, // orange
 ]
+
+interface IslandCenter {
+  x: number
+  y: number
+  communityId: number
+  name: string
+  count: number
+}
+
+function computeIslandCenters(nodes: SimNode[], width: number, height: number): Map<number, IslandCenter> {
+  const commMap = new Map<number, { name: string; count: number }>()
+  for (const n of nodes) {
+    const cId = n.community_id ?? n.properties?.community_id ?? 0
+    const cName = n.community_name || n.properties?.community_name || `Cluster ${cId}`
+    const existing = commMap.get(cId) || { name: cName, count: 0 }
+    existing.count++
+    commMap.set(cId, existing)
+  }
+
+  const cIds = Array.from(commMap.keys()).sort((a, b) => a - b)
+  const K = cIds.length
+  const centers = new Map<number, IslandCenter>()
+
+  if (K <= 1) {
+    const cId = cIds[0] ?? 0
+    centers.set(cId, {
+      x: width / 2,
+      y: height / 2,
+      communityId: cId,
+      name: commMap.get(cId)?.name || "Primary Architecture",
+      count: commMap.get(cId)?.count || nodes.length,
+    })
+    return centers
+  }
+
+  // Multi-focal radial distribution with generous distance to guarantee non-overlapping island hulls
+  const islandRadius = Math.max(340, Math.min(width, height) * 0.44)
+  cIds.forEach((cId, idx) => {
+    const angle = (2 * Math.PI * idx) / K - Math.PI / 2
+    centers.set(cId, {
+      x: width / 2 + islandRadius * Math.cos(angle),
+      y: height / 2 + islandRadius * Math.sin(angle),
+      communityId: cId,
+      name: commMap.get(cId)!.name,
+      count: commMap.get(cId)!.count,
+    })
+  })
+
+  return centers
+}
 
 interface CommunityHullData {
   communityId: number
@@ -145,11 +207,11 @@ interface CommunityHullData {
   centroid: [number, number]
 }
 
-function computeCommunityHulls(nodes: SimNode[], isArch: boolean): CommunityHullData[] {
+function computeCommunityHulls(nodes: SimNode[]): CommunityHullData[] {
   const commMap = new Map<number, { name: string; nodes: SimNode[] }>()
   for (const n of nodes) {
-    const cId = n.properties?.community_id ?? n.community_id ?? 0
-    const cName = n.properties?.community_name || n.community_name || `Cluster ${cId}`
+    const cId = n.community_id ?? n.properties?.community_id ?? 0
+    const cName = n.community_name || n.properties?.community_name || `Cluster ${cId}`
     if (!commMap.has(cId)) {
       commMap.set(cId, { name: cName, nodes: [] })
     }
@@ -162,7 +224,7 @@ function computeCommunityHulls(nodes: SimNode[], isArch: boolean): CommunityHull
   commMap.forEach(({ name, nodes: cNodes }, cId) => {
     if (cNodes.length < 2) return
     const pts: [number, number][] = []
-    const pad = isArch ? 90 : 38
+    const pad = 65
     const angles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4]
 
     for (const node of cNodes) {
@@ -179,8 +241,8 @@ function computeCommunityHulls(nodes: SimNode[], isArch: boolean): CommunityHull
     const cx = d3.mean(hull, (p) => p[0]) || 0
     const cy = d3.mean(hull, (p) => p[1]) || 0
     const expanded: [number, number][] = hull.map(([px, py]) => [
-      cx + (px - cx) * 1.2,
-      cy + (py - cy) * 1.2,
+      cx + (px - cx) * 1.08,
+      cy + (py - cy) * 1.08,
     ])
 
     const pathD = hullLine(expanded)
@@ -217,7 +279,7 @@ function getDirName(filePath: string): string {
   if (parts.length <= 1) return "root"
   const parentFolders = parts.slice(0, -1)
   const lastFolders = parentFolders.slice(-2).join("/")
-  return lastFolders.length > 20 ? "…" + lastFolders.slice(-19) : lastFolders
+  return lastFolders.length > 18 ? "…" + lastFolders.slice(-17) : lastFolders
 }
 
 export default function KnowledgeGraph({ projectName }: { projectName: string }) {
@@ -243,6 +305,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
   const [downloading, setDownloading] = useState(false)
   const [viewMode, setViewMode] = useState<"d3" | "cognee">("d3")
   const [graphLevel, setGraphLevel] = useState<"architecture" | "symbols">("architecture")
+  const [expandedHubIds, setExpandedHubIds] = useState<Set<string>>(new Set())
   const [cogneeHtml, setCogneeHtml] = useState<string | null>(null)
   const [cogneeLoading, setCogneeLoading] = useState(false)
 
@@ -275,10 +338,24 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     return () => ro.disconnect()
   }, [])
 
-  // Architecture Mode: Aggregate symbols into concise File & Module nodes with coupling weights
-  const { displayNodes, displayEdges } = useMemo(() => {
-    if (graphLevel === "symbols" || rawNodes.length === 0) {
-      return { displayNodes: rawNodes, displayEdges: rawEdges }
+  // Toggle single hub constellation expansion
+  const toggleHubExpansion = useCallback((hubId: string) => {
+    setExpandedHubIds(prev => {
+      const next = new Set(prev)
+      if (next.has(hubId)) {
+        next.delete(hubId)
+      } else {
+        next.add(hubId)
+      }
+      return next
+    })
+  }, [])
+
+  // Hierarchical Hub-and-Spoke Constellation Model:
+  // Primary File/Module Hubs are authoritative nodes; internal symbols orbit as radial satellites.
+  const { displayNodes, displayEdges, allArchNodes } = useMemo(() => {
+    if (rawNodes.length === 0) {
+      return { displayNodes: [], displayEdges: [], allArchNodes: [] }
     }
 
     // 1. Group symbols by parent file
@@ -326,8 +403,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       fileSymbolsList.set(parentFileId, list)
     }
 
-    // Attach aggregated stats to file nodes
-    const archNodes: GraphNode[] = Array.from(fileNodeMap.values()).map(fn => {
+    // Attach aggregated stats to file nodes (Authoritative Hubs)
+    interface HubGraphNode extends GraphNode {
+      isHub?: boolean
+      community_id?: number
+      community_name?: string
+      is_god_node?: boolean
+      symbolCount?: number
+    }
+
+    const archNodes: HubGraphNode[] = Array.from(fileNodeMap.values()).map(fn => {
       const symList = fileSymbolsList.get(fn.id) || []
       const bestSym = symList.length > 0 ? symList.reduce((max, s) => {
         const d1 = s.properties?.degree ?? (s as any).degree ?? 0
@@ -341,21 +426,29 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
       return {
         ...fn,
+        isHub: true,
         community_id: commId,
         community_name: commName,
         is_god_node: isGod,
         properties: {
           ...fn.properties,
+          isHub: true,
           community_id: commId,
           community_name: commName,
           is_god_node: isGod,
           symbolCount: fileSymbolsCount.get(fn.id) || 1,
-          symbols: symList.map(s => ({ id: s.id, label: s.label, type: s.type })),
+          symbols: symList.map(s => ({
+            id: s.id,
+            label: s.label,
+            type: s.type,
+            source: s.source,
+            properties: s.properties
+          })),
         }
       }
     })
 
-    // 2. Collapse internal symbol-to-symbol links into file-to-file couplings
+    // 2. Build Highway Couplings (inter-hub cross-file imports & calls)
     const nodeLookup = new Map(rawNodes.map(n => [n.id, n]))
     const couplingMap = new Map<string, { source: string; target: string; count: number; relations: Set<string> }>()
 
@@ -367,7 +460,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const sFile = getParentFileId(sNode)
       const tFile = getParentFileId(tNode)
 
-      // Only cross-file links are kept in architecture view
       if (sFile && tFile && sFile !== tFile) {
         const key = `${sFile}--->${tFile}`
         const existing = couplingMap.get(key) || { source: sFile, target: tFile, count: 0, relations: new Set<string>() }
@@ -377,19 +469,104 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       }
     }
 
-    const archEdges: GraphEdge[] = Array.from(couplingMap.values()).map(c => ({
+    const highwayEdges: GraphEdge[] = Array.from(couplingMap.values()).map(c => ({
       source: c.source,
       target: c.target,
       relation: Array.from(c.relations).join(" / "),
       weight: Math.max(1, Math.min(8, c.count)),
       properties: {
+        isHighway: true,
         couplingCount: c.count,
         relations: Array.from(c.relations),
       }
     }))
 
-    return { displayNodes: archNodes, displayEdges: archEdges }
-  }, [graphLevel, rawNodes, rawEdges])
+    // Determine which hubs reveal their satellite constellations
+    const activeNodes: GraphNode[] = [...archNodes]
+    const activeEdges: GraphEdge[] = [...highwayEdges]
+
+    const hubsToExpand = new Set<string>()
+    if (graphLevel === "symbols") {
+      archNodes.forEach(h => hubsToExpand.add(h.id))
+    } else {
+      expandedHubIds.forEach(id => hubsToExpand.add(id))
+    }
+
+    // Add satellite nodes and spoke links for expanded hubs
+    for (const hub of archNodes) {
+      if (!hubsToExpand.has(hub.id)) continue
+      const symList = fileSymbolsList.get(hub.id) || []
+      const sCount = symList.length
+
+      symList.forEach((sym, sIdx) => {
+        const orbitRadius = sCount <= 8 ? 72 : (sIdx < 6 ? 64 : 96)
+
+        const satNode: GraphNode = {
+          ...sym,
+          properties: {
+            ...sym.properties,
+            isSatellite: true,
+            parentHubId: hub.id,
+            parentHubLabel: hub.label,
+            orbitRadius,
+            community_id: hub.community_id,
+            community_name: hub.community_name,
+          }
+        }
+
+        activeNodes.push(satNode)
+
+        // Spoke link connecting Hub -> Satellite
+        activeEdges.push({
+          source: hub.id,
+          target: sym.id,
+          relation: "CONTAINS",
+          weight: 1,
+          properties: {
+            isSpoke: true,
+            parentHubId: hub.id,
+          }
+        })
+      })
+    }
+
+    // Include internal symbol-to-symbol calls between visible satellites
+    if (hubsToExpand.size > 0) {
+      const visibleNodeIds = new Set(activeNodes.map(n => n.id))
+      for (const edge of rawEdges) {
+        if (visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)) {
+          const sNode = nodeLookup.get(edge.source)
+          const tNode = nodeLookup.get(edge.target)
+          if (sNode && tNode) {
+            const sFile = getParentFileId(sNode)
+            const tFile = getParentFileId(tNode)
+            if (sFile === tFile) {
+              activeEdges.push({
+                ...edge,
+                isIntraSatellite: true,
+                properties: {
+                  ...edge.properties,
+                  isIntraSatellite: true,
+                }
+              } as any)
+            }
+          }
+        }
+      }
+    }
+
+    return { displayNodes: activeNodes, displayEdges: activeEdges, allArchNodes: archNodes }
+  }, [graphLevel, rawNodes, rawEdges, expandedHubIds])
+
+  // Toggle expand/collapse all satellite constellations
+  const handleToggleExpandAll = useCallback(() => {
+    if (expandedHubIds.size > 0) {
+      setExpandedHubIds(new Set())
+    } else {
+      const allHubIds = new Set(allArchNodes.filter(n => (n.properties?.symbolCount || 0) > 0).map(n => n.id))
+      setExpandedHubIds(allHubIds)
+    }
+  }, [expandedHubIds, allArchNodes])
 
   const handleSelectNode = useCallback(async (node: GraphNode) => {
     setDetailNode(node)
@@ -424,7 +601,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     svg.selectAll("*").remove()
     svg.attr("width", width).attr("height", height)
 
-    // Defs for sleek directional markers
+    // Sleek directional markers
     const defs = svg.append("defs")
 
     const createMarker = (id: string, color: string) => {
@@ -457,7 +634,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         svg.selectAll<SVGTextElement, SimNode>("g.nodes text.node-label").style("opacity", function(d) {
           if (!d) return "0"
           const isGod = Boolean(d.properties?.is_god_node || (d as any).is_god_node || (d.properties?.degree || 0) >= 12)
-          return (isGod || k >= 1.25) ? "1" : "0"
+          return (isGod || k >= 1.2) ? "1" : "0"
         })
       })
     svg.call(zoom)
@@ -476,32 +653,85 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const nodeMap = new Map(displayNodes.map((n) => [n.id, n]))
     const filteredEdges = displayEdges.filter((e) => nodeMap.has(e.source) && nodeMap.has(e.target))
 
-    const simNodes: SimNode[] = displayNodes.map((n) => ({
-      ...n,
-      x: width / 2 + (Math.random() - 0.5) * 80,
-      y: height / 2 + (Math.random() - 0.5) * 80,
-      vx: 0,
-      vy: 0,
-      isArchFile: graphLevel === "architecture",
-      moduleGroup: n.properties?.moduleGroup,
-      symbolCount: n.properties?.symbolCount,
-      community_id: n.properties?.community_id ?? (n as any).community_id ?? 0,
-      community_name: n.properties?.community_name || (n as any).community_name,
-      is_god_node: Boolean(n.properties?.is_god_node ?? (n as any).is_god_node ?? false),
-      degree: n.properties?.degree ?? (n as any).degree ?? 0,
-      degree_centrality: n.properties?.degree_centrality ?? (n as any).degree_centrality ?? 0,
-      betweenness_centrality: n.properties?.betweenness_centrality ?? (n as any).betweenness_centrality ?? 0,
-    }))
+    // Compute Multi-focal Island Centers
+    const islandCenters = computeIslandCenters(displayNodes as any, width, height)
+
+    // Pre-calculate Hub positions near their respective community island centers
+    const hubPositions = new Map<string, { x: number; y: number }>()
+    for (const n of displayNodes) {
+      if ((n as any).isHub) {
+        const cId = (n as any).community_id ?? n.properties?.community_id ?? 0
+        const center = islandCenters.get(cId) || { x: width / 2, y: height / 2 }
+        const hx = center.x + (Math.random() - 0.5) * 130
+        const hy = center.y + (Math.random() - 0.5) * 130
+        hubPositions.set(n.id, { x: hx, y: hy })
+      }
+    }
+
+    const simNodes: SimNode[] = displayNodes.map((n) => {
+      const isHub = Boolean((n as any).isHub ?? n.properties?.isHub ?? false)
+      const isSat = Boolean((n as any).isSatellite ?? n.properties?.isSatellite ?? false)
+      const cId = (n as any).community_id ?? n.properties?.community_id ?? 0
+      const cCenter = islandCenters.get(cId) || { x: width / 2, y: height / 2 }
+
+      let initX = width / 2
+      let initY = height / 2
+
+      if (isHub) {
+        const pos = hubPositions.get(n.id) || cCenter
+        initX = pos.x
+        initY = pos.y
+      } else if (isSat) {
+        const pHubId = (n as any).parentHubId || n.properties?.parentHubId
+        const parentPos = (pHubId && hubPositions.get(pHubId)) || cCenter
+        const sIdx = (n as any).satelliteIndex ?? 0
+        const sTotal = Math.max(1, (n as any).satelliteTotal ?? 6)
+        const rad = (n as any).orbitRadius ?? 72
+        const angle = (2 * Math.PI * sIdx) / sTotal
+        initX = parentPos.x + rad * Math.cos(angle)
+        initY = parentPos.y + rad * Math.sin(angle)
+      } else {
+        initX = cCenter.x + (Math.random() - 0.5) * 120
+        initY = cCenter.y + (Math.random() - 0.5) * 120
+      }
+
+      return {
+        ...n,
+        x: initX,
+        y: initY,
+        vx: 0,
+        vy: 0,
+        isArchFile: isHub,
+        isHub,
+        isSatellite: isSat,
+        parentHubId: (n as any).parentHubId || n.properties?.parentHubId,
+        parentHubLabel: (n as any).parentHubLabel || n.properties?.parentHubLabel,
+        satelliteIndex: (n as any).satelliteIndex,
+        satelliteTotal: (n as any).satelliteTotal,
+        orbitRadius: (n as any).orbitRadius ?? 72,
+        moduleGroup: n.properties?.moduleGroup,
+        symbolCount: n.properties?.symbolCount,
+        community_id: cId,
+        community_name: (n as any).community_name || n.properties?.community_name || `Cluster ${cId}`,
+        is_god_node: Boolean((n as any).is_god_node ?? n.properties?.is_god_node ?? false),
+        degree: (n as any).degree ?? n.properties?.degree ?? 0,
+        degree_centrality: (n as any).degree_centrality ?? n.properties?.degree_centrality ?? 0,
+        betweenness_centrality: (n as any).betweenness_centrality ?? n.properties?.betweenness_centrality ?? 0,
+      }
+    })
 
     const simLinks: SimLink[] = filteredEdges.map((e) => ({
       ...e,
-      isArchLink: graphLevel === "architecture"
+      isArchLink: Boolean((e as any).isHighway),
+      isHighway: Boolean((e as any).isHighway),
+      isSpoke: Boolean((e as any).isSpoke),
+      isIntraSatellite: Boolean((e as any).isIntraSatellite),
     }))
 
     // 0. Community Convex Bubble Hulls (Background layer)
     const hullGroup = g.append("g").attr("class", "community-hulls")
 
-    // 1. Links Rendering (Curved Quadratic Bezier paths)
+    // 1. Links Rendering (Curved Quadratic Bezier paths for highways, clean straight dashed spokes)
     const linkGroup = g.append("g").attr("class", "links")
     const link = linkGroup
       .selectAll<SVGPathElement, SimLink>("path.edge-path")
@@ -510,32 +740,35 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("class", "edge-path")
       .attr("fill", "none")
       .attr("stroke", (d) => {
+        if (d.isSpoke) return "rgba(56, 189, 248, 0.28)"
+        if (d.isIntraSatellite) return "rgba(148, 163, 184, 0.2)"
         if (d.relation.includes("IMPORTS")) return PALETTE.links.imports
         if (d.relation.includes("CALLS")) return PALETTE.links.calls
         return PALETTE.links.default
       })
       .attr("stroke-dasharray", (d) => {
+        if (d.isSpoke) return "2, 3"
         if (d.relation.includes("IMPORTS")) return "4, 3"
         return "none"
       })
-      .attr("marker-end", () => "url(#arrow-default)")
+      .attr("marker-end", (d) => d.isSpoke ? "none" : "url(#arrow-default)")
       .attr("stroke-width", (d) => {
-        if (graphLevel === "architecture") {
-          return Math.max(1.5, Math.min(5, Math.sqrt(d.weight || 1) * 2))
-        }
+        if (d.isSpoke) return 1.2
+        if (d.isIntraSatellite) return 1
+        if (d.isHighway) return Math.max(2, Math.min(5, Math.sqrt(d.weight || 1) * 2))
         return Math.max(1, Math.min(3, (d.weight || 1) * 1.5))
       })
-      .attr("stroke-opacity", 0.6)
+      .attr("stroke-opacity", (d) => d.isSpoke ? 0.75 : 0.6)
 
     // 2. Link Labels (coupling weight / relation) - hidden by default to eliminate visual clutter
     const linkLabelGroup = g.append("g").attr("class", "link-labels")
     const linkLabel = linkLabelGroup
       .selectAll<SVGTextElement, SimLink>("text")
-      .data(simLinks)
+      .data(simLinks.filter(l => !l.isSpoke))
       .join("text")
-      .text((d) => graphLevel === "architecture" ? `${d.weight > 1 ? `${d.weight}x ` : ""}${d.relation}` : d.relation)
+      .text((d) => d.isHighway ? `${d.weight > 1 ? `${d.weight}x ` : ""}${d.relation}` : d.relation)
       .attr("fill", "#94a3b8")
-      .attr("font-size", graphLevel === "architecture" ? 8.5 : 8)
+      .attr("font-size", 8.5)
       .attr("font-family", "JetBrains Mono, ui-monospace, monospace")
       .attr("text-anchor", "middle")
       .attr("dy", -6)
@@ -563,127 +796,136 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         }
       })
 
-    if (graphLevel === "architecture") {
-      // ARCHITECTURE CARD NODE (Modern Dev Card)
-      const CARD_W = 152
-      const CARD_H = 46
+    // ARCHITECTURAL CARD NODE FOR HUBS
+    const CARD_W = 156
+    const CARD_H = 48
 
-      nodeGroup.append("rect")
-        .attr("class", "arch-card")
-        .attr("x", -CARD_W / 2)
-        .attr("y", -CARD_H / 2)
-        .attr("width", CARD_W)
-        .attr("height", CARD_H)
-        .attr("rx", 8)
-        .attr("ry", 8)
-        .attr("fill", PALETTE.fileCard.fill)
-        .attr("stroke", PALETTE.fileCard.stroke)
-        .attr("stroke-width", 1.5)
-        .style("filter", "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
+    const hubGroup = nodeGroup.filter((d) => Boolean(d.isHub))
 
-      // Module Directory Subtitle (Truncated relative path)
-      nodeGroup.append("text")
-        .attr("class", "arch-module")
-        .text((d) => {
-          if (!d.moduleGroup || d.moduleGroup === "root") return ""
-          const grp = d.moduleGroup
-          return grp.length > 18 ? "…" + grp.slice(-17) + "/" : `${grp}/`
-        })
-        .attr("x", -CARD_W / 2 + 10)
-        .attr("y", -CARD_H / 2 + 15)
-        .attr("fill", PALETTE.fileCard.subtext)
-        .attr("font-size", 8.5)
-        .attr("font-family", "JetBrains Mono, monospace")
-        .attr("pointer-events", "none")
+    hubGroup.append("rect")
+      .attr("class", "arch-card")
+      .attr("x", -CARD_W / 2)
+      .attr("y", -CARD_H / 2)
+      .attr("width", CARD_W)
+      .attr("height", CARD_H)
+      .attr("rx", 8)
+      .attr("ry", 8)
+      .attr("fill", PALETTE.fileCard.fill)
+      .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : PALETTE.fileCard.stroke)
+      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2 : 1.5)
+      .style("filter", (d) => (d.properties?.is_god_node || (d as any).is_god_node)
+        ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
+        : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
 
-      // File Name Title
-      nodeGroup.append("text")
-        .attr("class", "arch-filename")
-        .text((d) => {
-          const name = d.label
-          return name.length > 18 ? name.slice(0, 16) + "…" : name
-        })
-        .attr("x", -CARD_W / 2 + 10)
-        .attr("y", -CARD_H / 2 + 32)
-        .attr("fill", PALETTE.fileCard.text)
-        .attr("font-size", 11)
-        .attr("font-weight", 600)
-        .attr("font-family", "JetBrains Mono, monospace")
-        .attr("pointer-events", "none")
+    // Module Directory Subtitle
+    hubGroup.append("text")
+      .attr("class", "arch-module")
+      .text((d) => {
+        if (!d.moduleGroup || d.moduleGroup === "root") return ""
+        const grp = d.moduleGroup
+        return grp.length > 16 ? "…" + grp.slice(-15) + "/" : `${grp}/`
+      })
+      .attr("x", -CARD_W / 2 + 10)
+      .attr("y", -CARD_H / 2 + 15)
+      .attr("fill", PALETTE.fileCard.subtext)
+      .attr("font-size", 8.5)
+      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("pointer-events", "none")
 
-      // Symbol Count Badge
-      const badge = nodeGroup.append("g")
-        .attr("transform", `translate(${CARD_W / 2 - 38}, ${-CARD_H / 2 + 14})`)
+    // File Name Title
+    hubGroup.append("text")
+      .attr("class", "arch-filename")
+      .text((d) => {
+        const name = d.label
+        return name.length > 16 ? name.slice(0, 14) + "…" : name
+      })
+      .attr("x", -CARD_W / 2 + 10)
+      .attr("y", -CARD_H / 2 + 33)
+      .attr("fill", PALETTE.fileCard.text)
+      .attr("font-size", 10.5)
+      .attr("font-weight", 600)
+      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("pointer-events", "none")
 
-      badge.append("rect")
-        .attr("width", 28)
-        .attr("height", 16)
-        .attr("rx", 8)
-        .attr("fill", "rgba(56, 189, 248, 0.12)")
-        .attr("stroke", "rgba(56, 189, 248, 0.3)")
-        .attr("stroke-width", 1)
+    // Interactive Satellites Expand/Collapse Badge on Hub Card
+    const badge = hubGroup.append("g")
+      .attr("class", "hub-satellites-badge")
+      .attr("transform", `translate(${CARD_W / 2 - 42}, ${-CARD_H / 2 + 13})`)
+      .attr("cursor", "pointer")
+      .on("click", (event, d) => {
+        event.stopPropagation()
+        toggleHubExpansion(d.id)
+      })
 
-      badge.append("text")
-        .text((d) => `${d.symbolCount || 1}`)
-        .attr("x", 14)
-        .attr("y", 11)
-        .attr("text-anchor", "middle")
-        .attr("fill", "#38bdf8")
-        .attr("font-size", 9)
-        .attr("font-weight", "bold")
-        .attr("font-family", "JetBrains Mono, monospace")
-        .attr("pointer-events", "none")
+    badge.append("rect")
+      .attr("width", 34)
+      .attr("height", 20)
+      .attr("rx", 10)
+      .attr("fill", (d) => expandedHubIds.has(d.id) ? "rgba(56, 189, 248, 0.28)" : "rgba(56, 189, 248, 0.1)")
+      .attr("stroke", (d) => expandedHubIds.has(d.id) ? "#38bdf8" : "rgba(56, 189, 248, 0.35)")
+      .attr("stroke-width", 1)
 
-    } else {
-      // DEEP SYMBOL CIRCULAR NODE (Centrality scaling & God Node indicator)
-      // God Node Outer Halo Ring
-      nodeGroup.filter((d) => Boolean(d.properties?.is_god_node || (d as any).is_god_node))
-        .append("circle")
-        .attr("class", "god-halo")
-        .attr("r", (d) => getNodeRadius(d.type, d) + 6)
-        .attr("fill", "none")
-        .attr("stroke", "#38bdf8")
-        .attr("stroke-width", 1.5)
-        .attr("stroke-dasharray", "3, 3")
-        .style("filter", "drop-shadow(0 0 8px #38bdf8)")
-        .attr("pointer-events", "none")
+    badge.append("text")
+      .text((d) => {
+        const isExp = expandedHubIds.has(d.id)
+        const count = d.symbolCount || d.properties?.symbolCount || 1
+        return `${isExp ? "−" : "+"} ${count}`
+      })
+      .attr("x", 17)
+      .attr("y", 13.5)
+      .attr("text-anchor", "middle")
+      .attr("fill", (d) => expandedHubIds.has(d.id) ? "#ffffff" : "#38bdf8")
+      .attr("font-size", 9.5)
+      .attr("font-weight", "bold")
+      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("pointer-events", "none")
 
-      nodeGroup.append("circle")
-        .attr("r", (d) => getNodeRadius(d.type, d))
-        .attr("fill", (d) => getNodeStyle(d.type).fill)
-        .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : getNodeStyle(d.type).stroke)
-        .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 2)
-        .style("filter", (d) => {
-          const isGod = d.properties?.is_god_node || (d as any).is_god_node
-          if (isGod) return "drop-shadow(0 0 14px rgba(56, 189, 248, 0.6))"
-          return d.type === "Module" || d.type === "Class"
-            ? `drop-shadow(0 0 10px ${getNodeStyle(d.type).stroke}40)`
-            : `drop-shadow(0 0 4px ${getNodeStyle(d.type).stroke}20)`
-        })
+    // SATELLITE ORBITAL NODES (Small circular nodes)
+    const satGroup = nodeGroup.filter((d) => Boolean(d.isSatellite))
 
-      nodeGroup.append("text")
-        .attr("class", "node-glyph")
-        .text((d) => getNodeGlyph(d.type))
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "central")
-        .attr("fill", (d) => getNodeStyle(d.type).text)
-        .attr("font-size", (d) => (d.type === "Module" || d.type === "Document" ? 10 : 11))
-        .attr("font-family", "JetBrains Mono, monospace")
-        .attr("font-weight", "bold")
-        .attr("pointer-events", "none")
+    satGroup.filter((d) => Boolean(d.properties?.is_god_node || (d as any).is_god_node))
+      .append("circle")
+      .attr("class", "god-halo")
+      .attr("r", (d) => getNodeRadius(d.type, d) + 5)
+      .attr("fill", "none")
+      .attr("stroke", "#38bdf8")
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "3, 3")
+      .style("filter", "drop-shadow(0 0 6px #38bdf8)")
+      .attr("pointer-events", "none")
 
-      nodeGroup.append("text")
-        .attr("class", "node-label")
-        .text((d) => (d.label.length > 24 ? d.label.slice(0, 22) + "…" : d.label))
-        .attr("dx", (d) => getNodeRadius(d.type, d) + 8)
-        .attr("dy", "0.35em")
-        .attr("fill", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#f8fafc" : "#cbd5e1")
-        .attr("font-size", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 10.5 : 9.5)
-        .attr("font-weight", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 700 : 500)
-        .attr("font-family", "JetBrains Mono, monospace")
-        .attr("pointer-events", "none")
-    }
+    satGroup.append("circle")
+      .attr("r", (d) => getNodeRadius(d.type, d))
+      .attr("fill", (d) => getNodeStyle(d.type).fill)
+      .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : getNodeStyle(d.type).stroke)
+      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.8)
+      .style("filter", (d) => `drop-shadow(0 0 6px ${getNodeStyle(d.type).stroke}40)`)
 
+    satGroup.append("text")
+      .attr("class", "node-glyph")
+      .text((d) => getNodeGlyph(d.type))
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "central")
+      .attr("fill", (d) => getNodeStyle(d.type).text)
+      .attr("font-size", 9.5)
+      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-weight", "bold")
+      .attr("pointer-events", "none")
+
+    satGroup.append("text")
+      .attr("class", "node-label")
+      .text((d) => {
+        const clean = d.label.includes("::") ? d.label.split("::").pop()! : d.label
+        return clean.length > 18 ? clean.slice(0, 16) + "…" : clean
+      })
+      .attr("dx", (d) => getNodeRadius(d.type, d) + 6)
+      .attr("dy", "0.35em")
+      .attr("fill", "#cbd5e1")
+      .attr("font-size", 9)
+      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("pointer-events", "none")
+
+    // Drag behavior with simulation wake-up
     const drag = d3.drag<SVGGElement, SimNode>()
       .on("start", (event, d) => {
         if (!event.active) sim.alphaTarget(0.3).restart()
@@ -701,31 +943,64 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
     nodeGroup.call(drag)
 
-    // Force Simulation configuration
-    const linkDistance = graphLevel === "architecture" ? 240 : 130
-    const chargeStrength = graphLevel === "architecture" ? -650 : -200
+    // Multi-Focal Island Force Simulation Configuration
+    const simNodeMap = new Map<string, SimNode>(simNodes.map(n => [n.id, n]))
 
     const sim = d3.forceSimulation(simNodes)
       .force("link", d3.forceLink<SimNode, SimLink>(simLinks)
         .id((d) => d.id)
-        .distance(linkDistance)
-        .strength(0.25))
-      .force("charge", d3.forceManyBody().strength(chargeStrength).distanceMax(950))
-      .force("center", d3.forceCenter(width / 2, height / 2))
+        .distance((d) => d.isSpoke ? (d.target as SimNode).orbitRadius || 72 : 240)
+        .strength((d) => d.isSpoke ? 0.9 : 0.22))
+      .force("charge", d3.forceManyBody<SimNode>()
+        .strength((d) => d.isHub ? -580 : -100)
+        .distanceMax(950))
+      .force("islandX", d3.forceX<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.x ?? width / 2).strength(0.36))
+      .force("islandY", d3.forceY<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.y ?? height / 2).strength(0.36))
       .force("collision", d3.forceCollide<SimNode>().radius((d) =>
-        graphLevel === "architecture" ? 115 : getNodeRadius(d.type, d) + 24
+        d.isHub ? 95 : getNodeRadius(d.type, d) + 16
       ))
-      .alphaDecay(0.02)
+      .alphaDecay(0.022)
 
     // Zero-Wobble Off-screen Pre-stabilization (settle 140 ticks before canvas paint)
     sim.stop()
     for (let i = 0; i < 140; ++i) {
       sim.tick()
+      // Enforce radial orbital satellite constraint during tick
+      for (const d of simNodes) {
+        if (d.isSatellite && d.parentHubId) {
+          const hub = simNodeMap.get(d.parentHubId)
+          if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
+            const dx = d.x - hub.x
+            const dy = d.y - hub.y
+            const dist = Math.hypot(dx, dy) || 1
+            const targetDist = d.orbitRadius || 72
+            const nudge = (targetDist - dist) * 0.18
+            d.x += (dx / dist) * nudge
+            d.y += (dy / dist) * nudge
+          }
+        }
+      }
     }
 
     const updatePositions = () => {
-      // 1. Update Community Hulls
-      const hulls = computeCommunityHulls(simNodes, graphLevel === "architecture")
+      // Enforce radial orbital satellite constraint on every live tick
+      for (const d of simNodes) {
+        if (d.isSatellite && d.parentHubId) {
+          const hub = simNodeMap.get(d.parentHubId)
+          if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
+            const dx = d.x - hub.x
+            const dy = d.y - hub.y
+            const dist = Math.hypot(dx, dy) || 1
+            const targetDist = d.orbitRadius || 72
+            const nudge = (targetDist - dist) * 0.2
+            d.x += (dx / dist) * nudge
+            d.y += (dy / dist) * nudge
+          }
+        }
+      }
+
+      // 1. Update Community Hulls (Islands)
+      const hulls = computeCommunityHulls(simNodes)
       const hullPaths = hullGroup.selectAll<SVGPathElement, CommunityHullData>("path.community-hull")
         .data(hulls, (d) => d.communityId)
 
@@ -757,23 +1032,27 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("pointer-events", "none")
         .merge(hullLabels)
         .attr("x", (d) => d.centroid[0])
-        .attr("y", (d) => d.centroid[1] - (graphLevel === "architecture" ? 60 : 45))
-        .text((d) => d.communityName)
+        .attr("y", (d) => d.centroid[1] - 50)
+        .text((d) => `✦ ${d.communityName}`)
 
       hullLabels.exit().remove()
 
-      // 2. Update Curved Links
+      // 2. Update Links (Spokes and Curved Highways)
       link.attr("d", (d, idx) => {
         const s = d.source as SimNode
         const t = d.target as SimNode
         if (!s || !t || typeof s.x !== "number" || typeof t.x !== "number") return ""
 
+        if (d.isSpoke) {
+          // Delicate spoke line directly from Hub to Satellite
+          return `M ${s.x} ${s.y} L ${t.x} ${t.y}`
+        }
+
         const dx = t.x - s.x
         const dy = t.y - s.y
         const dist = Math.hypot(dx, dy) || 1
-        const baseCurv = graphLevel === "architecture" ? 26 : 18
-        // Alternating curve offset for parallel edges between the same nodes
-        const pairFactor = (idx % 2 === 1) ? 1.35 : 1.0
+        const baseCurv = d.isHighway ? 28 : 16
+        const pairFactor = (idx % 2 === 1) ? 1.3 : 1.0
         const curvature = baseCurv * pairFactor
 
         const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
@@ -784,20 +1063,14 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         let endX = t.x
         let endY = t.y
 
-        if (graphLevel === "architecture") {
-          const hw = 152 / 2
-          const hh = 46 / 2
+        if (s.isHub) {
+          const hw = 156 / 2
+          const hh = 48 / 2
           const ux = cx - s.x
           const uy = cy - s.y
           const scaleS = Math.min(Math.abs(ux) > 0 ? hw / Math.abs(ux) : 999, Math.abs(uy) > 0 ? hh / Math.abs(uy) : 999)
           startX = s.x + ux * Math.min(scaleS, 1.0)
           startY = s.y + uy * Math.min(scaleS, 1.0)
-
-          const vx = t.x - cx
-          const vy = t.y - cy
-          const scaleT = Math.min(Math.abs(vx) > 0 ? (hw + 6) / Math.abs(vx) : 999, Math.abs(vy) > 0 ? (hh + 6) / Math.abs(vy) : 999)
-          endX = t.x - vx * Math.min(scaleT, 1.0)
-          endY = t.y - vy * Math.min(scaleT, 1.0)
         } else {
           const rS = getNodeRadius(s.type, s)
           const ux = cx - s.x
@@ -805,7 +1078,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           const ulen = Math.hypot(ux, uy) || 1
           startX = s.x + (ux / ulen) * rS
           startY = s.y + (uy / ulen) * rS
+        }
 
+        if (t.isHub) {
+          const hw = 156 / 2
+          const hh = 48 / 2
+          const vx = t.x - cx
+          const vy = t.y - cy
+          const scaleT = Math.min(Math.abs(vx) > 0 ? (hw + 6) / Math.abs(vx) : 999, Math.abs(vy) > 0 ? (hh + 6) / Math.abs(vy) : 999)
+          endX = t.x - vx * Math.min(scaleT, 1.0)
+          endY = t.y - vy * Math.min(scaleT, 1.0)
+        } else {
           const rT = getNodeRadius(t.type, t) + 4
           const vx = t.x - cx
           const vy = t.y - cy
@@ -825,7 +1108,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           const dx = t.x - s.x
           const dy = t.y - s.y
           const dist = Math.hypot(dx, dy) || 1
-          const curvature = graphLevel === "architecture" ? 24 : 16
+          const curvature = d.isHighway ? 24 : 16
           const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
           return 0.25 * (s.x + t.x) + 0.5 * cx
         })
@@ -835,7 +1118,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           const dx = t.x - s.x
           const dy = t.y - s.y
           const dist = Math.hypot(dx, dy) || 1
-          const curvature = graphLevel === "architecture" ? 24 : 16
+          const curvature = d.isHighway ? 24 : 16
           const cy = (s.y + t.y) / 2 + (dx / dist) * curvature
           return 0.25 * (s.y + t.y) + 0.5 * cy
         })
@@ -852,7 +1135,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     simRef.current = sim
 
     return () => { sim.stop() }
-  }, [displayNodes, displayEdges, dimensions, graphLevel, handleSelectNode])
+  }, [displayNodes, displayEdges, dimensions, graphLevel, expandedHubIds, handleSelectNode, toggleHubExpansion])
 
   // Filter & Search & Upstream/Downstream Dependency Path Highlighting
   useEffect(() => {
@@ -860,8 +1143,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const svg = d3.select(svgRef.current)
     const q = searchQuery.toLowerCase()
 
-    // Upstream (Dependencies: nodes this node imports/calls)
-    // Downstream (Consumers: nodes that import/call this node)
     const upstreamIds = new Set<string>()
     const downstreamIds = new Set<string>()
     const activeLinkKeys = new Set<string>()
@@ -900,13 +1181,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (!matchesSearch || !matchesType) {
         opacity = 0.05
       } else if (hasFocus) {
-        opacity = isRelevant ? 1.0 : 0.15
+        opacity = isRelevant ? 1.0 : 0.12
       }
 
       group.style("opacity", String(opacity))
       group.style("pointer-events", opacity < 0.1 ? "none" : "auto")
 
-      if (graphLevel === "architecture") {
+      if (d.isHub) {
         const card = group.select<SVGRectElement>("rect.arch-card")
         if (isSelected) {
           card
@@ -925,9 +1206,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             .style("filter", "drop-shadow(0 0 12px rgba(251, 191, 36, 0.45))")
         } else {
           card
-            .attr("stroke", PALETTE.fileCard.stroke)
-            .attr("stroke-width", 1.5)
-            .style("filter", "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
+            .attr("stroke", (d.properties?.is_god_node || d.is_god_node) ? "#38bdf8" : PALETTE.fileCard.stroke)
+            .attr("stroke-width", (d.properties?.is_god_node || d.is_god_node) ? 2 : 1.5)
+            .style("filter", (d.properties?.is_god_node || d.is_god_node)
+              ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
+              : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
         }
       } else {
         const circle = group.select<SVGCircleElement>("circle")
@@ -949,13 +1232,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         } else {
           circle
             .attr("stroke", getNodeStyle(d.type).stroke)
-            .attr("stroke-width", 2)
-            .style("filter", `drop-shadow(0 0 4px ${getNodeStyle(d.type).stroke}30)`)
+            .attr("stroke-width", 1.8)
+            .style("filter", `drop-shadow(0 0 6px ${getNodeStyle(d.type).stroke}40)`)
         }
       }
     })
 
-    // Update Link Highlighting & Colors (Curved Bezier Paths)
+    // Update Link Highlighting & Colors
     svg.selectAll<SVGPathElement, SimLink>("g.links path.edge-path").each(function(d: any) {
       if (!d || !d.source || !d.target) return
       const sId = typeof d.source === "object" ? d.source.id : d.source
@@ -969,9 +1252,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const matchesSearch = !q || (d.source.label?.toLowerCase().includes(q) || d.target.label?.toLowerCase().includes(q))
       const matchesType = !hiddenTypes.has(sType) && !hiddenTypes.has(tType)
 
-      let linkOpacity = 0.6
-      let strokeColor = PALETTE.links.default
-      let markerEnd = "url(#arrow-default)"
+      let linkOpacity = d.isSpoke ? 0.75 : 0.6
+      let strokeColor = d.isSpoke ? "rgba(56, 189, 248, 0.28)" : (d.isIntraSatellite ? "rgba(148, 163, 184, 0.2)" : PALETTE.links.default)
+      let markerEnd = d.isSpoke ? "none" : "url(#arrow-default)"
 
       if (!matchesSearch || !matchesType) {
         linkOpacity = 0.03
@@ -979,13 +1262,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         if (isOutboundFromFocus) {
           linkOpacity = 1.0
           strokeColor = PALETTE.links.activeUpstream
-          markerEnd = "url(#arrow-upstream)"
+          markerEnd = d.isSpoke ? "none" : "url(#arrow-upstream)"
         } else if (isInboundToFocus) {
           linkOpacity = 1.0
           strokeColor = PALETTE.links.activeDownstream
-          markerEnd = "url(#arrow-downstream)"
+          markerEnd = d.isSpoke ? "none" : "url(#arrow-downstream)"
         } else {
-          linkOpacity = 0.06
+          linkOpacity = 0.05
         }
       } else {
         if (d.relation.includes("IMPORTS")) strokeColor = PALETTE.links.imports
@@ -1025,7 +1308,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const isUpstream = upstreamIds.has(d.id)
       const isDownstream = downstreamIds.has(d.id)
       const matchesSearch = Boolean(q && d.label?.toLowerCase().includes(q))
-      const isZoomed = zoomScaleRef.current >= 1.25
+      const isZoomed = zoomScaleRef.current >= 1.2
 
       if (isGod || isSelected || isHovered || isUpstream || isDownstream || matchesSearch || isZoomed) {
         return "1"
@@ -1098,7 +1381,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (!detailNode) return []
     return displayEdges.filter(e => {
       const t = typeof e.target === "object" ? (e.target as any).id : e.target
-      return t === detailNode.id
+      return t === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
     })
   }, [detailNode, displayEdges])
 
@@ -1106,7 +1389,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (!detailNode) return []
     return displayEdges.filter(e => {
       const s = typeof e.source === "object" ? (e.source as any).id : e.source
-      return s === detailNode.id
+      return s === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
     })
   }, [detailNode, displayEdges])
 
@@ -1158,7 +1441,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         {/* Left: View Mode Toggle */}
         <div className="flex items-center gap-2 pointer-events-auto bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl shadow-xl">
           <button
-            onClick={() => setGraphLevel("architecture")}
+            onClick={() => {
+              setGraphLevel("architecture")
+              setExpandedHubIds(new Set())
+            }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
               graphLevel === "architecture"
                 ? "bg-primary text-on-primary shadow-md"
@@ -1169,15 +1455,19 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             <span>File Architecture</span>
           </button>
           <button
-            onClick={() => setGraphLevel("symbols")}
+            onClick={() => {
+              setGraphLevel("symbols")
+              const allHubIds = new Set(allArchNodes.map(n => n.id))
+              setExpandedHubIds(allHubIds)
+            }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
               graphLevel === "symbols"
                 ? "bg-primary text-on-primary shadow-md"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
             }`}
           >
-            <span className="material-symbols-outlined text-base">account_tree</span>
-            <span>Deep Symbols</span>
+            <span className="material-symbols-outlined text-base">hub</span>
+            <span>Satellite Constellations</span>
           </button>
         </div>
 
@@ -1186,21 +1476,22 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
             <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]"></span>
             <span className="font-mono text-xs text-slate-300">
-              {graphLevel === "architecture" ? `${displayNodes.length} Files` : `${displayNodes.length} Symbols`}
+              {displayNodes.filter(n => (n as any).isHub).length} Hubs
+              {displayNodes.filter(n => (n as any).isSatellite).length > 0 && ` • ${displayNodes.filter(n => (n as any).isSatellite).length} Satellites`}
             </span>
           </div>
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
             <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]"></span>
             <span className="font-mono text-xs text-slate-300">
-              {graphLevel === "architecture" ? `${displayEdges.length} Couplings` : `${displayEdges.length} Edges`}
+              {displayEdges.filter(e => (e as any).isHighway).length} Highways
             </span>
           </div>
         </div>
       </div>
 
       {/* FLOATING ACTION TOOLBAR */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-[#0f172a]/95 backdrop-blur-md border border-slate-800 px-6 py-2.5 rounded-full flex items-center gap-6 shadow-2xl pointer-events-auto z-20">
-        <div className="flex items-center gap-2 pr-6 border-r border-slate-800">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-[#0f172a]/95 backdrop-blur-md border border-slate-800 px-6 py-2.5 rounded-full flex items-center gap-5 shadow-2xl pointer-events-auto z-20">
+        <div className="flex items-center gap-2 pr-5 border-r border-slate-800">
           <button
             className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-full transition-colors"
             onClick={handleZoomIn}
@@ -1219,6 +1510,22 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Constellation Expand/Collapse All Toggle */}
+          <button
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
+              expandedHubIds.size > 0
+                ? "bg-sky-950/80 text-sky-300 border border-sky-800/60 shadow-[0_0_8px_rgba(56,189,248,0.25)]"
+                : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
+            }`}
+            onClick={handleToggleExpandAll}
+            title={expandedHubIds.size > 0 ? "Collapse all satellite constellations" : "Expand all satellite constellations"}
+          >
+            <span className="material-symbols-outlined text-sm">
+              {expandedHubIds.size > 0 ? "unfold_less" : "unfold_more"}
+            </span>
+            {expandedHubIds.size > 0 ? "Collapse Satellites" : "Expand Satellites"}
+          </button>
+
           {/* Filter Dropdown */}
           <div className="relative">
             <button
@@ -1275,7 +1582,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           <div className="relative">
             <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
             <input
-              className="bg-[#0b0f19] border border-slate-800 rounded-md pl-8 pr-7 py-1 font-mono text-xs text-slate-200 placeholder-slate-500 focus:border-primary outline-none w-48 transition-all"
+              className="bg-[#0b0f19] border border-slate-800 rounded-md pl-8 pr-7 py-1 font-mono text-xs text-slate-200 placeholder-slate-500 focus:border-primary outline-none w-44 transition-all"
               placeholder="Filter file or symbol..."
               type="text"
               value={searchQuery}
@@ -1306,7 +1613,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-800">
           <h3 className="font-mono text-sm font-semibold text-primary flex items-center gap-2">
             <span className="material-symbols-outlined text-base">account_tree</span>
-            {graphLevel === "architecture" ? "Architecture Inspector" : "Symbol Inspector"}
+            {(detailNode as any)?.isHub ? "Architectural Hub Inspector" : "Symbol Inspector"}
           </h3>
           <button className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-md transition-colors" onClick={handleCloseInspector}>
             <span className="material-symbols-outlined text-base">close</span>
@@ -1318,7 +1625,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             {/* Title & Badge */}
             <div>
               <div className="text-[10px] font-mono uppercase text-slate-500 tracking-wider mb-1">
-                {graphLevel === "architecture" ? "FILE NODE" : "AST SYMBOL"}
+                {(detailNode as any).isHub ? "ARCHITECTURAL HUB (FILE)" : (detailNode as any).isSatellite ? "ORBITAL SATELLITE SYMBOL" : "GRAPH NODE"}
               </div>
               <h4 className="font-mono text-base font-bold text-white break-words">{detailNode.label}</h4>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -1343,7 +1650,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
                 {(detailNode.properties?.community_name || (detailNode as any).community_name) && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono text-indigo-300 bg-indigo-950/70 border border-indigo-800/60">
-                    cluster: {detailNode.properties?.community_name || (detailNode as any).community_name}
+                    island: {detailNode.properties?.community_name || (detailNode as any).community_name}
                   </span>
                 )}
 
@@ -1361,16 +1668,95 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               </div>
             </div>
 
-            {/* Architecture Mode: Outbound Dependencies */}
-            {graphLevel === "architecture" && activeOutbound.length > 0 && (
+            {/* When Satellite is selected: Link to Parent Hub */}
+            {(detailNode as any).isSatellite && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
-                  DEPENDENCIES (IMPORTS & CALLS) — {activeOutbound.length}
+                  PARENT ARCHITECTURAL HUB
+                </label>
+                <button
+                  onClick={() => {
+                    const pHubId = (detailNode as any).parentHubId || detailNode.properties?.parentHubId
+                    const parentHub = displayNodes.find(n => n.id === pHubId) || allArchNodes.find(n => n.id === pHubId)
+                    if (parentHub) {
+                      handleSelectNode(parentHub)
+                    }
+                  }}
+                  className="w-full text-left p-2.5 bg-slate-900/90 hover:bg-slate-800 rounded-lg border border-sky-800/50 text-xs font-mono flex items-center justify-between transition-colors group"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="material-symbols-outlined text-sm text-sky-400">domain</span>
+                    <span className="text-sky-300 font-semibold group-hover:underline truncate">
+                      {(detailNode as any).parentHubLabel || detailNode.properties?.parentHubLabel || getFileName((detailNode as any).parentHubId || "")}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">Focus Hub &rarr;</span>
+                </button>
+              </div>
+            )}
+
+            {/* When Hub is selected: Satellite Constellation List with Toggle */}
+            {(detailNode as any).isHub && detailNode.properties?.symbols && detailNode.properties.symbols.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">
+                    SATELLITE SYMBOLS ({detailNode.properties.symbols.length})
+                  </label>
+                  <button
+                    onClick={() => toggleHubExpansion(detailNode.id)}
+                    className="px-2.5 py-0.5 rounded text-[10px] font-mono font-medium bg-sky-950/80 hover:bg-sky-900 border border-sky-800/60 text-sky-300 transition-colors flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">
+                      {expandedHubIds.has(detailNode.id) ? "unfold_less" : "unfold_more"}
+                    </span>
+                    {expandedHubIds.has(detailNode.id) ? "Collapse Orbit" : "Expand Orbit"}
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {detailNode.properties.symbols.map((sym: any, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        const found = displayNodes.find(n => n.id === sym.id)
+                        if (found) {
+                          handleSelectNode(found)
+                        } else {
+                          toggleHubExpansion(detailNode.id)
+                        }
+                      }}
+                      className="w-full text-left p-2 bg-slate-900/60 hover:bg-slate-800/90 rounded border border-slate-800/80 text-[11px] font-mono flex items-center justify-between transition-colors group"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span
+                          className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold"
+                          style={{
+                            backgroundColor: getNodeStyle(sym.type).bg,
+                            color: getNodeStyle(sym.type).stroke,
+                          }}
+                        >
+                          {getNodeGlyph(sym.type)}
+                        </span>
+                        <span className="text-slate-300 group-hover:text-sky-300 transition-colors truncate">
+                          {sym.label.includes("::") ? sym.label.split("::").pop() : sym.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">{sym.type}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Architecture / Hub Mode: Outbound Dependencies */}
+            {activeOutbound.length > 0 && (
+              <div>
+                <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
+                  OUTBOUND DEPENDENCIES (CALLS & IMPORTS) — {activeOutbound.length}
                 </label>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeOutbound.map((edge, idx) => {
                     const targetId = typeof edge.target === "object" ? (edge.target as any).id : edge.target
-                    const targetNode = displayNodes.find(n => n.id === targetId)
+                    const targetNode = displayNodes.find(n => n.id === targetId) || allArchNodes.find(n => n.id === targetId)
                     const label = targetNode ? targetNode.label : getFileName(targetId)
                     return (
                       <button
@@ -1390,16 +1776,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               </div>
             )}
 
-            {/* Architecture Mode: Inbound Consumers */}
-            {graphLevel === "architecture" && activeInbound.length > 0 && (
+            {/* Architecture / Hub Mode: Inbound Consumers */}
+            {activeInbound.length > 0 && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
-                  CONSUMERS (IMPORTED BY) — {activeInbound.length}
+                  INBOUND CONSUMERS (CALLERS & IMPORTERS) — {activeInbound.length}
                 </label>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeInbound.map((edge, idx) => {
                     const sourceId = typeof edge.source === "object" ? (edge.source as any).id : edge.source
-                    const sourceNode = displayNodes.find(n => n.id === sourceId)
+                    const sourceNode = displayNodes.find(n => n.id === sourceId) || allArchNodes.find(n => n.id === sourceId)
                     const label = sourceNode ? sourceNode.label : getFileName(sourceId)
                     return (
                       <button
@@ -1419,25 +1805,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               </div>
             )}
 
-            {/* Symbols Contained inside File */}
-            {graphLevel === "architecture" && detailNode.properties?.symbols && detailNode.properties.symbols.length > 0 && (
-              <div>
-                <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
-                  SYMBOLS IN THIS FILE — {detailNode.properties.symbols.length}
-                </label>
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                  {detailNode.properties.symbols.map((sym: any, idx: number) => (
-                    <div key={idx} className="p-2 bg-slate-900/60 rounded border border-slate-800/80 text-[11px] font-mono flex items-center justify-between">
-                      <span className="text-slate-300 truncate">{sym.label}</span>
-                      <span className="text-[10px] text-slate-500">{sym.type}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Symbol Mode: Code Signature */}
-            {graphLevel === "symbols" && detailNode.properties?.signature && (
+            {detailNode.properties?.signature && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">CODE SIGNATURE</label>
                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-[11px] leading-relaxed text-amber-300 break-words overflow-x-auto">
