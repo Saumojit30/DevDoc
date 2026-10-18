@@ -22,7 +22,9 @@ interface SimNode extends GraphNode {
   parentHubLabel?: string
   satelliteIndex?: number
   satelliteTotal?: number
+  ringIndex?: number
   orbitRadius?: number
+  orbitAngle?: number
   moduleGroup?: string
   symbolCount?: number
   inboundCouplings?: number
@@ -156,15 +158,21 @@ interface IslandCenter {
   communityId: number
   name: string
   count: number
+  islandRadius: number
 }
 
-function computeIslandCenters(nodes: SimNode[], width: number, height: number): Map<number, IslandCenter> {
-  const commMap = new Map<number, { name: string; count: number }>()
+function computeIslandCenters(nodes: (SimNode | GraphNode)[], width: number, height: number): Map<number, IslandCenter> {
+  const commMap = new Map<number, { name: string; hubCount: number; symbolCount: number }>()
   for (const n of nodes) {
-    const cId = n.community_id ?? n.properties?.community_id ?? 0
-    const cName = n.community_name || n.properties?.community_name || `Cluster ${cId}`
-    const existing = commMap.get(cId) || { name: cName, count: 0 }
-    existing.count++
+    const cId = (n as any).community_id ?? n.properties?.community_id ?? 0
+    const cName = (n as any).community_name || n.properties?.community_name || `Cluster ${cId}`
+    const existing = commMap.get(cId) || { name: cName, hubCount: 0, symbolCount: 0 }
+    if ((n as any).isHub || n.type === "CodeFile" || n.type === "Module" || n.type === "File") {
+      existing.hubCount++
+      existing.symbolCount += (n.properties?.symbolCount || 1)
+    } else {
+      existing.symbolCount++
+    }
     commMap.set(cId, existing)
   }
 
@@ -172,28 +180,51 @@ function computeIslandCenters(nodes: SimNode[], width: number, height: number): 
   const K = cIds.length
   const centers = new Map<number, IslandCenter>()
 
-  if (K <= 1) {
-    const cId = cIds[0] ?? 0
+  if (K === 0) return centers
+
+  // Dynamic radius for each island continent
+  const islandRadii = new Map<number, number>()
+  cIds.forEach((cId) => {
+    const info = commMap.get(cId)!
+    const rad = Math.max(140, Math.min(270, 100 + info.hubCount * 36 + Math.sqrt(info.symbolCount) * 10))
+    islandRadii.set(cId, rad)
+  })
+
+  if (K === 1) {
+    const cId = cIds[0]
     centers.set(cId, {
       x: width / 2,
       y: height / 2,
       communityId: cId,
       name: commMap.get(cId)?.name || "Primary Architecture",
-      count: commMap.get(cId)?.count || nodes.length,
+      count: commMap.get(cId)?.hubCount || 1,
+      islandRadius: islandRadii.get(cId) || 160,
     })
     return centers
   }
 
-  // Multi-focal radial distribution with generous distance to guarantee non-overlapping island hulls
-  const islandRadius = Math.max(340, Math.min(width, height) * 0.44)
+  // Determine archipelago radius such that adjacent islands have guaranteed clearance (gap >= 95px)
+  let maxAdjacentSum = 0
+  const gap = 95
+  for (let i = 0; i < K; i++) {
+    const r1 = islandRadii.get(cIds[i]) || 180
+    const r2 = islandRadii.get(cIds[(i + 1) % K]) || 180
+    maxAdjacentSum = Math.max(maxAdjacentSum, r1 + r2 + gap)
+  }
+
+  const sinHalf = Math.sin(Math.PI / K)
+  const requiredDist = maxAdjacentSum / (2 * sinHalf)
+  const archipelagoRadius = Math.max(320, requiredDist)
+
   cIds.forEach((cId, idx) => {
     const angle = (2 * Math.PI * idx) / K - Math.PI / 2
     centers.set(cId, {
-      x: width / 2 + islandRadius * Math.cos(angle),
-      y: height / 2 + islandRadius * Math.sin(angle),
+      x: width / 2 + archipelagoRadius * Math.cos(angle),
+      y: height / 2 + archipelagoRadius * Math.sin(angle),
       communityId: cId,
       name: commMap.get(cId)!.name,
-      count: commMap.get(cId)!.count,
+      count: commMap.get(cId)!.hubCount,
+      islandRadius: islandRadii.get(cId) || 180,
     })
   })
 
@@ -222,15 +253,22 @@ function computeCommunityHulls(nodes: SimNode[]): CommunityHullData[] {
   const hullLine = d3.line<[number, number]>().curve(d3.curveCatmullRomClosed)
 
   commMap.forEach(({ name, nodes: cNodes }, cId) => {
-    if (cNodes.length < 2) return
+    if (cNodes.length === 0) return
     const pts: [number, number][] = []
-    const pad = 65
+    const pad = 48
     const angles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4]
 
     for (const node of cNodes) {
       if (typeof node.x !== "number" || typeof node.y !== "number") continue
+      // Hub cards span 156x48, satellites are circles
+      const cardHalfW = node.isHub ? 80 : (getNodeRadius(node.type, node) + 6)
+      const cardHalfH = node.isHub ? 28 : (getNodeRadius(node.type, node) + 6)
+
       for (const a of angles) {
-        pts.push([node.x + pad * Math.cos(a), node.y + pad * Math.sin(a)])
+        pts.push([
+          node.x + (cardHalfW + pad) * Math.cos(a),
+          node.y + (cardHalfH + pad) * Math.sin(a),
+        ])
       }
     }
 
@@ -241,8 +279,8 @@ function computeCommunityHulls(nodes: SimNode[]): CommunityHullData[] {
     const cx = d3.mean(hull, (p) => p[0]) || 0
     const cy = d3.mean(hull, (p) => p[1]) || 0
     const expanded: [number, number][] = hull.map(([px, py]) => [
-      cx + (px - cx) * 1.08,
-      cy + (py - cy) * 1.08,
+      cx + (px - cx) * 1.04,
+      cy + (py - cy) * 1.04,
     ])
 
     const pathD = hullLine(expanded)
@@ -288,6 +326,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const simRef = useRef<d3.Simulation<SimNode, SimLink> | null>(null)
   const zoomScaleRef = useRef(1.0)
+  const fitTransformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity)
 
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [rawNodes, setRawNodes] = useState<GraphNode[]>([])
@@ -384,7 +423,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
     // Group remaining symbols (classes, functions) into their parent file
     for (const node of rawNodes) {
+      const isFileNode = node.id.startsWith("file://") || node.type === "Module" || node.type === "File" || node.type === "CodeFile"
+      if (isFileNode) continue // Never treat a file node as an internal symbol of itself
+
       const parentFileId = getParentFileId(node)
+      if (node.id === parentFileId) continue
+
       if (!fileNodeMap.has(parentFileId)) {
         fileNodeMap.set(parentFileId, {
           id: parentFileId,
@@ -497,9 +541,59 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (!hubsToExpand.has(hub.id)) continue
       const symList = fileSymbolsList.get(hub.id) || []
       const sCount = symList.length
+      if (sCount === 0) continue
 
       symList.forEach((sym, sIdx) => {
-        const orbitRadius = sCount <= 8 ? 72 : (sIdx < 6 ? 64 : 96)
+        let orbitRadius = 76
+        let ringIndex = 0
+        let ringTotal = sCount
+        let posInRing = sIdx
+        let angleOffset = -Math.PI / 2
+
+        if (sCount <= 8) {
+          orbitRadius = 76
+          ringTotal = sCount
+          posInRing = sIdx
+        } else if (sCount <= 20) {
+          const innerCount = 6
+          const outerCount = sCount - innerCount
+          if (sIdx < innerCount) {
+            orbitRadius = 68
+            ringIndex = 0
+            ringTotal = innerCount
+            posInRing = sIdx
+          } else {
+            orbitRadius = 104
+            ringIndex = 1
+            ringTotal = outerCount
+            posInRing = sIdx - innerCount
+            angleOffset = -Math.PI / 2 + Math.PI / outerCount
+          }
+        } else {
+          const innerCount = 6
+          const midCount = 10
+          const outerCount = sCount - innerCount - midCount
+          if (sIdx < innerCount) {
+            orbitRadius = 66
+            ringIndex = 0
+            ringTotal = innerCount
+            posInRing = sIdx
+          } else if (sIdx < innerCount + midCount) {
+            orbitRadius = 100
+            ringIndex = 1
+            ringTotal = midCount
+            posInRing = sIdx - innerCount
+            angleOffset = -Math.PI / 2 + Math.PI / midCount
+          } else {
+            orbitRadius = 138
+            ringIndex = 2
+            ringTotal = outerCount
+            posInRing = sIdx - innerCount - midCount
+            angleOffset = -Math.PI / 2 + Math.PI / outerCount
+          }
+        }
+
+        const orbitAngle = angleOffset + (2 * Math.PI * posInRing) / ringTotal
 
         const satNode: GraphNode = {
           ...sym,
@@ -508,11 +602,25 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             isSatellite: true,
             parentHubId: hub.id,
             parentHubLabel: hub.label,
+            satelliteIndex: sIdx,
+            satelliteTotal: sCount,
+            ringIndex,
             orbitRadius,
+            orbitAngle,
             community_id: hub.community_id,
             community_name: hub.community_name,
           }
         }
+        ;(satNode as any).isSatellite = true
+        ;(satNode as any).parentHubId = hub.id
+        ;(satNode as any).parentHubLabel = hub.label
+        ;(satNode as any).satelliteIndex = sIdx
+        ;(satNode as any).satelliteTotal = sCount
+        ;(satNode as any).ringIndex = ringIndex
+        ;(satNode as any).orbitRadius = orbitRadius
+        ;(satNode as any).orbitAngle = orbitAngle
+        ;(satNode as any).community_id = hub.community_id
+        ;(satNode as any).community_name = hub.community_name
 
         activeNodes.push(satNode)
 
@@ -684,10 +792,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       } else if (isSat) {
         const pHubId = (n as any).parentHubId || n.properties?.parentHubId
         const parentPos = (pHubId && hubPositions.get(pHubId)) || cCenter
-        const sIdx = (n as any).satelliteIndex ?? 0
-        const sTotal = Math.max(1, (n as any).satelliteTotal ?? 6)
-        const rad = (n as any).orbitRadius ?? 72
-        const angle = (2 * Math.PI * sIdx) / sTotal
+        const rad = (n as any).orbitRadius ?? n.properties?.orbitRadius ?? 76
+        const angle = (n as any).orbitAngle ?? n.properties?.orbitAngle ?? 0
         initX = parentPos.x + rad * Math.cos(angle)
         initY = parentPos.y + rad * Math.sin(angle)
       } else {
@@ -708,7 +814,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         parentHubLabel: (n as any).parentHubLabel || n.properties?.parentHubLabel,
         satelliteIndex: (n as any).satelliteIndex,
         satelliteTotal: (n as any).satelliteTotal,
-        orbitRadius: (n as any).orbitRadius ?? 72,
+        ringIndex: (n as any).ringIndex ?? n.properties?.ringIndex,
+        orbitRadius: (n as any).orbitRadius ?? n.properties?.orbitRadius ?? 76,
+        orbitAngle: (n as any).orbitAngle ?? n.properties?.orbitAngle ?? 0,
         moduleGroup: n.properties?.moduleGroup,
         symbolCount: n.properties?.symbolCount,
         community_id: cId,
@@ -730,6 +838,34 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
     // 0. Community Convex Bubble Hulls (Background layer)
     const hullGroup = g.append("g").attr("class", "community-hulls")
+
+    // 0.5. Orbital Constellation Guide Rings around expanded hubs
+    const orbitGuideGroup = g.append("g").attr("class", "orbit-guides")
+    interface OrbitGuide {
+      hubId: string
+      radius: number
+    }
+    const orbitGuides: OrbitGuide[] = []
+    const expandedHubs = simNodes.filter(n => n.isHub && expandedHubIds.has(n.id))
+    for (const hub of expandedHubs) {
+      const satNodes = simNodes.filter(n => n.isSatellite && n.parentHubId === hub.id)
+      const radii = [...new Set(satNodes.map(s => s.orbitRadius || 76))]
+      for (const r of radii) {
+        orbitGuides.push({ hubId: hub.id, radius: r })
+      }
+    }
+
+    const orbitCircles = orbitGuideGroup
+      .selectAll<SVGCircleElement, OrbitGuide>("circle.orbit-ring")
+      .data(orbitGuides, d => `${d.hubId}-r${d.radius}`)
+      .join("circle")
+      .attr("class", "orbit-ring")
+      .attr("fill", "none")
+      .attr("stroke", "rgba(56, 189, 248, 0.16)")
+      .attr("stroke-width", 1.2)
+      .attr("stroke-dasharray", "3, 4")
+      .attr("r", d => d.radius)
+      .attr("pointer-events", "none")
 
     // 1. Links Rendering (Curved Quadratic Bezier paths for highways, clean straight dashed spokes)
     const linkGroup = g.append("g").attr("class", "links")
@@ -790,9 +926,18 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
       .on("click", (event, d) => {
         event.stopPropagation()
-        const original = displayNodes.find((n) => n.id === d.id)
+        const original = displayNodes.find((n) => n.id === d.id) || allArchNodes.find((n) => n.id === d.id)
         if (original) {
           handleSelectNode(original)
+          if (d.isHub && !expandedHubIds.has(d.id)) {
+            toggleHubExpansion(d.id)
+          }
+        }
+      })
+      .on("dblclick", (event, d) => {
+        event.stopPropagation()
+        if (d.isHub) {
+          toggleHubExpansion(d.id)
         }
       })
 
@@ -949,55 +1094,113 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const sim = d3.forceSimulation(simNodes)
       .force("link", d3.forceLink<SimNode, SimLink>(simLinks)
         .id((d) => d.id)
-        .distance((d) => d.isSpoke ? (d.target as SimNode).orbitRadius || 72 : 240)
-        .strength((d) => d.isSpoke ? 0.9 : 0.22))
+        .distance((d) => {
+          if (d.isSpoke) return (d.target as SimNode).orbitRadius || 76
+          if (d.isHighway) {
+            const sCId = (d.source as SimNode).community_id ?? 0
+            const tCId = (d.target as SimNode).community_id ?? 0
+            return sCId !== tCId ? 420 : 180
+          }
+          return 140
+        })
+        .strength((d) => {
+          if (d.isSpoke) return 0.95
+          if (d.isHighway) {
+            const sCId = (d.source as SimNode).community_id ?? 0
+            const tCId = (d.target as SimNode).community_id ?? 0
+            return sCId !== tCId ? 0.03 : 0.22
+          }
+          return 0.25
+        }))
       .force("charge", d3.forceManyBody<SimNode>()
-        .strength((d) => d.isHub ? -580 : -100)
-        .distanceMax(950))
-      .force("islandX", d3.forceX<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.x ?? width / 2).strength(0.36))
-      .force("islandY", d3.forceY<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.y ?? height / 2).strength(0.36))
+        .strength((d) => d.isHub ? -600 : -80)
+        .distanceMax(650))
+      .force("islandX", d3.forceX<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.x ?? width / 2).strength(0.42))
+      .force("islandY", d3.forceY<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.y ?? height / 2).strength(0.42))
       .force("collision", d3.forceCollide<SimNode>().radius((d) =>
-        d.isHub ? 95 : getNodeRadius(d.type, d) + 16
+        d.isHub ? 100 : getNodeRadius(d.type, d) + 14
       ))
-      .alphaDecay(0.022)
+      .alphaDecay(0.024)
 
-    // Zero-Wobble Off-screen Pre-stabilization (settle 140 ticks before canvas paint)
-    sim.stop()
-    for (let i = 0; i < 140; ++i) {
-      sim.tick()
-      // Enforce radial orbital satellite constraint during tick
+    const enforceSpatialConstraints = () => {
+      // 1. Island boundary confinement: keep each community's nodes inside its island continent
       for (const d of simNodes) {
-        if (d.isSatellite && d.parentHubId) {
+        const cId = d.community_id ?? 0
+        const center = islandCenters.get(cId)
+        if (center && typeof d.x === "number" && typeof d.y === "number") {
+          const dx = d.x - center.x
+          const dy = d.y - center.y
+          const dist = Math.hypot(dx, dy) || 1
+          const maxAllowed = center.islandRadius - 15
+          if (dist > maxAllowed) {
+            const excess = dist - maxAllowed
+            d.x -= (dx / dist) * excess * 0.45
+            d.y -= (dy / dist) * excess * 0.45
+          }
+        }
+      }
+
+      // 2. Enforce satellite orbital constellation around parent hub
+      for (const d of simNodes) {
+        if (d.isSatellite && d.parentHubId && d.fx == null) {
           const hub = simNodeMap.get(d.parentHubId)
           if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
-            const dx = d.x - hub.x
-            const dy = d.y - hub.y
-            const dist = Math.hypot(dx, dy) || 1
-            const targetDist = d.orbitRadius || 72
-            const nudge = (targetDist - dist) * 0.18
-            d.x += (dx / dist) * nudge
-            d.y += (dy / dist) * nudge
+            const rad = d.orbitRadius || 76
+            const angle = d.orbitAngle ?? 0
+            const targetX = hub.x + rad * Math.cos(angle)
+            const targetY = hub.y + rad * Math.sin(angle)
+            d.x += (targetX - d.x) * 0.35
+            d.y += (targetY - d.y) * 0.35
           }
         }
       }
     }
 
-    const updatePositions = () => {
-      // Enforce radial orbital satellite constraint on every live tick
-      for (const d of simNodes) {
-        if (d.isSatellite && d.parentHubId) {
-          const hub = simNodeMap.get(d.parentHubId)
-          if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
-            const dx = d.x - hub.x
-            const dy = d.y - hub.y
-            const dist = Math.hypot(dx, dy) || 1
-            const targetDist = d.orbitRadius || 72
-            const nudge = (targetDist - dist) * 0.2
-            d.x += (dx / dist) * nudge
-            d.y += (dy / dist) * nudge
-          }
-        }
+    // Zero-Wobble Off-screen Pre-stabilization (settle 140 ticks before canvas paint)
+    sim.stop()
+    for (let i = 0; i < 140; ++i) {
+      sim.tick()
+      enforceSpatialConstraints()
+    }
+
+    // Auto-fit to viewport so all community islands are perfectly visible and centered
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const d of simNodes) {
+      if (typeof d.x === "number" && typeof d.y === "number") {
+        minX = Math.min(minX, d.x - 100)
+        maxX = Math.max(maxX, d.x + 100)
+        minY = Math.min(minY, d.y - 80)
+        maxY = Math.max(maxY, d.y + 80)
       }
+    }
+
+    if (isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
+      const gW = Math.max(120, maxX - minX)
+      const gH = Math.max(120, maxY - minY)
+      const pad = 60
+      const scale = Math.min(1.15, Math.max(0.18, Math.min((width - pad * 2) / gW, (height - pad * 2) / gH)))
+      const cx = (minX + maxX) / 2
+      const cy = (minY + maxY) / 2
+      const tx = width / 2 - scale * cx
+      const ty = height / 2 - scale * cy
+
+      const fitTransform = d3.zoomIdentity.translate(tx, ty).scale(scale)
+      fitTransformRef.current = fitTransform
+      svg.call(zoom.transform, fitTransform)
+    }
+
+    const updatePositions = () => {
+      enforceSpatialConstraints()
+
+      // 0. Update Orbital Guide Rings
+      orbitCircles.each(function(d) {
+        const hub = simNodeMap.get(d.hubId)
+        if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
+          d3.select(this)
+            .attr("cx", hub.x)
+            .attr("cy", hub.y)
+        }
+      })
 
       // 1. Update Community Hulls (Islands)
       const hulls = computeCommunityHulls(simNodes)
@@ -1148,19 +1351,43 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const activeLinkKeys = new Set<string>()
 
     if (selectedNodeId) {
-      displayEdges.forEach((e) => {
-        const s = typeof e.source === "object" ? (e.source as any).id : e.source
-        const t = typeof e.target === "object" ? (e.target as any).id : e.target
+      const selectedIsHub = Boolean((detailNode as any)?.isHub || detailNode?.type === "CodeFile" || detailNode?.type === "Module")
 
-        if (s === selectedNodeId) {
-          upstreamIds.add(t)
-          activeLinkKeys.add(`${s}-->${t}`)
-        }
-        if (t === selectedNodeId) {
-          downstreamIds.add(s)
-          activeLinkKeys.add(`${s}-->${t}`)
-        }
-      })
+      if (selectedIsHub) {
+        displayEdges.forEach((e) => {
+          const s = typeof e.source === "object" ? (e.source as any).id : e.source
+          const t = typeof e.target === "object" ? (e.target as any).id : e.target
+
+          if (s === selectedNodeId) {
+            upstreamIds.add(t)
+            activeLinkKeys.add(`${s}-->${t}`)
+          }
+          if (t === selectedNodeId) {
+            downstreamIds.add(s)
+            activeLinkKeys.add(`${s}-->${t}`)
+          }
+        })
+      } else {
+        displayEdges.forEach((e) => {
+          const s = typeof e.source === "object" ? (e.source as any).id : e.source
+          const t = typeof e.target === "object" ? (e.target as any).id : e.target
+          if (s === selectedNodeId) upstreamIds.add(t)
+          if (t === selectedNodeId) downstreamIds.add(s)
+        })
+
+        rawEdges.forEach((e) => {
+          if (e.source === selectedNodeId) {
+            upstreamIds.add(e.target)
+            const tNode = rawNodes.find(n => n.id === e.target)
+            if (tNode) upstreamIds.add(getParentFileId(tNode))
+          }
+          if (e.target === selectedNodeId) {
+            downstreamIds.add(e.source)
+            const sNode = rawNodes.find(n => n.id === e.source)
+            if (sNode) downstreamIds.add(getParentFileId(sNode))
+          }
+        })
+      }
     }
 
     const hasFocus = Boolean(selectedNodeId)
@@ -1341,7 +1568,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     setSelectedNodeId(null)
     setDetailsOpen(false)
     if (!svgRef.current || !zoomRef.current) return
-    d3.select(svgRef.current).transition().duration(500).call(zoomRef.current.transform, d3.zoomIdentity)
+    d3.select(svgRef.current).transition().duration(500).call(zoomRef.current.transform, fitTransformRef.current)
   }
 
   const handleDownloadGraph = async () => {
@@ -1379,19 +1606,45 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
   // Active node inbound/outbound dependencies for the inspector
   const activeInbound = useMemo(() => {
     if (!detailNode) return []
-    return displayEdges.filter(e => {
-      const t = typeof e.target === "object" ? (e.target as any).id : e.target
-      return t === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
-    })
-  }, [detailNode, displayEdges])
+    const isHub = Boolean((detailNode as any).isHub || detailNode.type === "CodeFile" || detailNode.type === "Module")
+    if (isHub) {
+      return displayEdges.filter(e => {
+        const t = typeof e.target === "object" ? (e.target as any).id : e.target
+        return t === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
+      })
+    }
+    // For satellite symbol: retrieve inbound callers from rawEdges
+    return rawEdges.filter(e => e.target === detailNode.id)
+  }, [detailNode, displayEdges, rawEdges])
 
   const activeOutbound = useMemo(() => {
     if (!detailNode) return []
-    return displayEdges.filter(e => {
-      const s = typeof e.source === "object" ? (e.source as any).id : e.source
-      return s === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
-    })
-  }, [detailNode, displayEdges])
+    const isHub = Boolean((detailNode as any).isHub || detailNode.type === "CodeFile" || detailNode.type === "Module")
+    if (isHub) {
+      return displayEdges.filter(e => {
+        const s = typeof e.source === "object" ? (e.source as any).id : e.source
+        return s === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
+      })
+    }
+    // For satellite symbol: retrieve outbound calls from rawEdges
+    return rawEdges.filter(e => e.source === detailNode.id)
+  }, [detailNode, displayEdges, rawEdges])
+
+  const handleJumpToDependency = useCallback((targetId: string) => {
+    const existing = displayNodes.find(n => n.id === targetId) || allArchNodes.find(n => n.id === targetId)
+    if (existing) {
+      handleSelectNode(existing)
+      return
+    }
+    const rawTarget = rawNodes.find(n => n.id === targetId)
+    if (rawTarget) {
+      const parentFileId = getParentFileId(rawTarget)
+      setExpandedHubIds(prev => new Set([...prev, parentFileId]))
+      setTimeout(() => {
+        handleSelectNode(rawTarget)
+      }, 50)
+    }
+  }, [displayNodes, allArchNodes, rawNodes, handleSelectNode])
 
   return (
     <motion.main
@@ -1756,19 +2009,21 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeOutbound.map((edge, idx) => {
                     const targetId = typeof edge.target === "object" ? (edge.target as any).id : edge.target
-                    const targetNode = displayNodes.find(n => n.id === targetId) || allArchNodes.find(n => n.id === targetId)
+                    const targetNode = displayNodes.find(n => n.id === targetId) || allArchNodes.find(n => n.id === targetId) || rawNodes.find(n => n.id === targetId)
                     const label = targetNode ? targetNode.label : getFileName(targetId)
                     return (
                       <button
                         key={idx}
-                        onClick={() => { if (targetNode) handleSelectNode(targetNode) }}
+                        onClick={() => handleJumpToDependency(targetId)}
                         className="w-full text-left p-2.5 bg-slate-900/80 hover:bg-slate-800/90 rounded-lg border border-slate-800 text-xs font-mono flex items-center justify-between transition-colors group"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
                           <span className="text-slate-200 group-hover:text-sky-300 transition-colors truncate">{label}</span>
                         </div>
-                        <span className="text-[10px] text-slate-500 font-mono flex-shrink-0 ml-2">{edge.weight}x couplings</span>
+                        <span className="text-[10px] text-slate-500 font-mono flex-shrink-0 ml-2">
+                          {(edge as any).isHighway ? `${edge.weight}x couplings` : (edge.relation || "DEPENDENCY")}
+                        </span>
                       </button>
                     )
                   })}
@@ -1776,7 +2031,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               </div>
             )}
 
-            {/* Architecture / Hub Mode: Inbound Consumers */}
+            {/* Inbound Consumers */}
             {activeInbound.length > 0 && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
@@ -1785,19 +2040,21 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeInbound.map((edge, idx) => {
                     const sourceId = typeof edge.source === "object" ? (edge.source as any).id : edge.source
-                    const sourceNode = displayNodes.find(n => n.id === sourceId) || allArchNodes.find(n => n.id === sourceId)
+                    const sourceNode = displayNodes.find(n => n.id === sourceId) || allArchNodes.find(n => n.id === sourceId) || rawNodes.find(n => n.id === sourceId)
                     const label = sourceNode ? sourceNode.label : getFileName(sourceId)
                     return (
                       <button
                         key={idx}
-                        onClick={() => { if (sourceNode) handleSelectNode(sourceNode) }}
+                        onClick={() => handleJumpToDependency(sourceId)}
                         className="w-full text-left p-2.5 bg-slate-900/80 hover:bg-slate-800/90 rounded-lg border border-slate-800 text-xs font-mono flex items-center justify-between transition-colors group"
                       >
                         <div className="flex items-center gap-2 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                           <span className="text-slate-200 group-hover:text-amber-300 transition-colors truncate">{label}</span>
                         </div>
-                        <span className="text-[10px] text-slate-500 font-mono flex-shrink-0 ml-2">{edge.weight}x couplings</span>
+                        <span className="text-[10px] text-slate-500 font-mono flex-shrink-0 ml-2">
+                          {(edge as any).isHighway ? `${edge.weight}x couplings` : (edge.relation || "CONSUMER")}
+                        </span>
                       </button>
                     )
                   })}
