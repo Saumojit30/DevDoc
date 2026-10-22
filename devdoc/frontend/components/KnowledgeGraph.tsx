@@ -291,6 +291,7 @@ function computeNodeTiers(
   const codeNodes = fileNodes.filter(n => !nonCodeIds.has(n.id))
   if (codeNodes.length === 0) return result
 
+  const codeNodeIds = new Set(codeNodes.map(n => n.id))
   const inDegree = new Map<string, number>()
   const outDegree = new Map<string, number>()
   const adj = new Map<string, string[]>()
@@ -301,12 +302,10 @@ function computeNodeTiers(
   }
 
   for (const edge of couplingEdges) {
-    if (codeNodes.some(n => n.id === edge.source) && codeNodes.some(n => n.id === edge.target)) {
-      if (edge.source !== edge.target) {
-        adj.get(edge.source)?.push(edge.target)
-        outDegree.set(edge.source, (outDegree.get(edge.source) || 0) + 1)
-        inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
-      }
+    if (codeNodeIds.has(edge.source) && codeNodeIds.has(edge.target) && edge.source !== edge.target) {
+      adj.get(edge.source)?.push(edge.target)
+      outDegree.set(edge.source, (outDegree.get(edge.source) || 0) + 1)
+      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
     }
   }
 
@@ -339,7 +338,40 @@ function computeNodeTiers(
     roots = [sorted[0]]
   }
 
-  // Calculate topological depth using longest path relaxation
+  // Break cycles by filtering back-edges using DFS state (0: unvisited, 1: visiting, 2: visited)
+  const visitState = new Map<string, number>()
+  const dagAdj = new Map<string, string[]>()
+  for (const n of codeNodes) {
+    visitState.set(n.id, 0)
+    dagAdj.set(n.id, [])
+  }
+
+  const dfsFilterCycles = (u: string) => {
+    visitState.set(u, 1)
+    for (const v of adj.get(u) || []) {
+      const st = visitState.get(v) ?? 0
+      if (st === 0) {
+        dagAdj.get(u)?.push(v)
+        dfsFilterCycles(v)
+      } else if (st === 2) {
+        dagAdj.get(u)?.push(v)
+      }
+    }
+    visitState.set(u, 2)
+  }
+
+  for (const r of roots) {
+    if (visitState.get(r.id) === 0) {
+      dfsFilterCycles(r.id)
+    }
+  }
+  for (const n of codeNodes) {
+    if (visitState.get(n.id) === 0) {
+      dfsFilterCycles(n.id)
+    }
+  }
+
+  // Calculate topological depth using longest path relaxation on the cycle-free DAG
   const depth = new Map<string, number>()
   for (const n of codeNodes) {
     depth.set(n.id, -1)
@@ -350,7 +382,7 @@ function computeNodeTiers(
 
   for (let iter = 0; iter < codeNodes.length; iter++) {
     let changed = false
-    for (const [u, targets] of adj.entries()) {
+    for (const [u, targets] of dagAdj.entries()) {
       const du = depth.get(u) ?? -1
       if (du >= 0) {
         for (const v of targets) {
@@ -366,22 +398,19 @@ function computeNodeTiers(
     if (!changed) break
   }
 
-  // Merge topological depth with semantic architectural priors
+  // Assign final architectural tier
   for (const node of codeNodes) {
     const topoDepth = depth.get(node.id) ?? -1
     const semanticHint = getSemanticTier(node)
 
-    let finalTier = 0
+    let finalTier: number
     if (semanticHint >= 0) {
-      if (semanticHint === 0) {
-        finalTier = 0
-      } else if (semanticHint === 4) {
-        finalTier = 4
-      } else {
-        finalTier = topoDepth >= 0 ? Math.max(topoDepth, semanticHint) : semanticHint
-      }
+      // Explicit architectural role takes precedence
+      finalTier = semanticHint
+    } else if (topoDepth >= 0) {
+      finalTier = Math.min(4, topoDepth)
     } else {
-      finalTier = topoDepth >= 0 ? topoDepth : ((inDegree.get(node.id) || 0) === 0 ? 0 : 2)
+      finalTier = (inDegree.get(node.id) || 0) === 0 ? 0 : ((outDegree.get(node.id) || 0) === 0 ? 4 : 2)
     }
 
     finalTier = Math.max(0, Math.min(4, finalTier))
@@ -632,7 +661,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (sCount === 0) continue
 
       symList.forEach((sym, sIdx) => {
-        const symbolsPerRow = 5
+        const symbolsPerRow = 6
         const row = Math.floor(sIdx / symbolsPerRow)
         const col = sIdx % symbolsPerRow
 
@@ -806,17 +835,37 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const nodeMap = new Map(displayNodes.map((n) => [n.id, n]))
     const filteredEdges = displayEdges.filter((e) => nodeMap.has(e.source) && nodeMap.has(e.target))
 
-    // Tier $Y$-coordinates map
+    // Calculate dynamic vertical tier layout adapting to expanded child symbol sub-grids
+    const hubNodes = displayNodes.filter(n => (n as any).isHub)
+    const tierCardMaxRows: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }
+
+    for (const h of hubNodes) {
+      const t = (h as any).tier ?? -1
+      if (t >= 0 && t <= 4 && expandedHubIds.has(h.id)) {
+        const sCount = (h as any).symbolCount ?? h.properties?.symbolCount ?? 0
+        if (sCount > 0) {
+          const rows = Math.ceil(sCount / 6)
+          tierCardMaxRows[t] = Math.max(tierCardMaxRows[t], rows)
+        }
+      }
+    }
+
+    const tierHeights: Record<number, number> = { 0: 48, 1: 48, 2: 48, 3: 48, 4: 48 }
+    for (let t = 0; t <= 4; t++) {
+      const extraHeight = tierCardMaxRows[t] > 0 ? (24 + tierCardMaxRows[t] * 28) : 0
+      tierHeights[t] = 48 + extraHeight
+    }
+
+    const BASE_VERTICAL_GAP = 140
     const tierYMap: Record<number, number> = {
       0: TOP_TIER_Y,
-      1: TOP_TIER_Y + TIER_SPACING,
-      2: TOP_TIER_Y + 2 * TIER_SPACING,
-      3: TOP_TIER_Y + 3 * TIER_SPACING,
-      4: TOP_TIER_Y + 4 * TIER_SPACING,
+      1: TOP_TIER_Y + tierHeights[0] + BASE_VERTICAL_GAP,
+      2: TOP_TIER_Y + tierHeights[0] + tierHeights[1] + 2 * BASE_VERTICAL_GAP,
+      3: TOP_TIER_Y + tierHeights[0] + tierHeights[1] + tierHeights[2] + 3 * BASE_VERTICAL_GAP,
+      4: TOP_TIER_Y + tierHeights[0] + tierHeights[1] + tierHeights[2] + tierHeights[3] + 4 * BASE_VERTICAL_GAP,
     }
 
     // Calculate initial structured coordinates per tier
-    const hubNodes = displayNodes.filter(n => (n as any).isHub)
     const tierTargets = new Map<string, { x: number; y: number }>()
 
     // Determine max cards in any code tier to establish horizontal width
@@ -865,12 +914,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const parentPos = (pHubId && tierTargets.get(pHubId)) || { x: width / 2, y: TOP_TIER_Y }
         const sIdx = (n as any).satelliteIndex ?? 0
         const sTotal = (n as any).satelliteTotal ?? 1
-        const symbolsPerRow = 5
+        const symbolsPerRow = 6
         const row = Math.floor(sIdx / symbolsPerRow)
         const col = sIdx % symbolsPerRow
         const countInThisRow = Math.min(symbolsPerRow, sTotal - row * symbolsPerRow)
-        initX = parentPos.x + (col - (countInThisRow - 1) / 2) * 32
-        initY = parentPos.y + 42 + row * 26
+        initX = parentPos.x + (col - (countInThisRow - 1) / 2) * 30
+        initY = parentPos.y + 42 + row * 28
       }
 
       return {
@@ -917,34 +966,37 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     // ==========================================================
     const tierGroup = g.append("g").attr("class", "tier-indicators")
 
+    const codeSimNodes = simNodes.filter(n => n.tier >= 0)
     let minX = width / 2 - 400
     let maxX = width / 2 + 400
-    if (simNodes.length > 0) {
-      const xs = simNodes.map(n => n.x)
-      minX = Math.min(...xs) - 260
-      maxX = Math.max(...xs) + 260
+    if (codeSimNodes.length > 0) {
+      const xs = codeSimNodes.map(n => n.x)
+      minX = Math.min(...xs) - 220
+      maxX = Math.max(...xs) + 220
     }
+    const codeMaxX = utilityNodes.length > 0 ? Math.min(maxX, utilityColumnX - 60) : maxX
 
     // Render 5 Architectural Tiers (0 to 4)
     ARCH_TIERS.forEach(tDef => {
       const y = tierYMap[tDef.tier]
+      const tHeight = tierHeights[tDef.tier] + 52
 
       // Subtle horizontal divider line
       tierGroup.append("line")
         .attr("x1", minX)
-        .attr("y1", y - 65)
-        .attr("x2", maxX)
-        .attr("y2", y - 65)
+        .attr("y1", y - 48)
+        .attr("x2", codeMaxX)
+        .attr("y2", y - 48)
         .attr("stroke", "rgba(51, 65, 85, 0.28)")
         .attr("stroke-dasharray", "6, 6")
         .attr("pointer-events", "none")
 
-      // Subtle background tier band
+      // Subtle background tier band accommodating expanded child symbols
       tierGroup.append("rect")
         .attr("x", minX)
-        .attr("y", y - 65)
-        .attr("width", maxX - minX)
-        .attr("height", 195)
+        .attr("y", y - 48)
+        .attr("width", codeMaxX - minX)
+        .attr("height", tHeight)
         .attr("rx", 10)
         .attr("fill", tDef.fillColor)
         .attr("pointer-events", "none")
@@ -952,7 +1004,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       // Left-pinned Tier Pill Badge
       tierGroup.append("rect")
         .attr("x", minX + 16)
-        .attr("y", y - 50)
+        .attr("y", y - 36)
         .attr("width", 72)
         .attr("height", 18)
         .attr("rx", 9)
@@ -963,7 +1015,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
       tierGroup.append("text")
         .attr("x", minX + 52)
-        .attr("y", y - 37)
+        .attr("y", y - 23)
         .attr("text-anchor", "middle")
         .attr("fill", tDef.badgeColor)
         .attr("font-size", 9)
@@ -975,7 +1027,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       // Left-pinned Tier Header Title
       tierGroup.append("text")
         .attr("x", minX + 98)
-        .attr("y", y - 37)
+        .attr("y", y - 23)
         .attr("fill", "#f1f5f9")
         .attr("font-size", 11.5)
         .attr("font-family", "JetBrains Mono, monospace")
@@ -986,7 +1038,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       // Left-pinned Tier Subtitle
       tierGroup.append("text")
         .attr("x", minX + 98)
-        .attr("y", y - 22)
+        .attr("y", y - 9)
         .attr("fill", "#64748b")
         .attr("font-size", 8.5)
         .attr("font-family", "JetBrains Mono, monospace")
@@ -994,20 +1046,34 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .text(tDef.sublabel)
     })
 
-    // Side Utility Tier Divider (if utility files exist)
+    // Side Utility Tier Divider & Docking Panel (if utility files exist)
     if (utilityNodes.length > 0) {
+      const maxY = tierYMap[4] + tierHeights[4] + 40
       tierGroup.append("line")
         .attr("x1", utilityColumnX - 45)
-        .attr("y1", TOP_TIER_Y - 65)
+        .attr("y1", TOP_TIER_Y - 48)
         .attr("x2", utilityColumnX - 45)
-        .attr("y2", TOP_TIER_Y + 4 * TIER_SPACING + 130)
+        .attr("y2", maxY)
         .attr("stroke", "rgba(148, 163, 184, 0.25)")
         .attr("stroke-dasharray", "4, 4")
         .attr("pointer-events", "none")
 
-      tierGroup.append("text")
+      tierGroup.append("rect")
         .attr("x", utilityColumnX - 35)
-        .attr("y", TOP_TIER_Y - 40)
+        .attr("y", TOP_TIER_Y - 48)
+        .attr("width", 210)
+        .attr("height", Math.max(160, utilityNodes.length * 80 + 40))
+        .attr("rx", 10)
+        .attr("fill", UTILITY_TIER_INFO.fillColor)
+        .attr("stroke", UTILITY_TIER_INFO.borderColor)
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "4, 4")
+        .attr("pointer-events", "none")
+
+      tierGroup.append("text")
+        .attr("x", utilityColumnX + 70)
+        .attr("y", TOP_TIER_Y - 24)
+        .attr("text-anchor", "middle")
         .attr("fill", "#94a3b8")
         .attr("font-size", 10)
         .attr("font-family", "JetBrains Mono, monospace")
@@ -1251,16 +1317,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("font-family", "JetBrains Mono, monospace")
       .attr("pointer-events", "none")
 
-    // Drag behavior with simulation wake-up
+    // Drag behavior with simulation wake-up and tier Y constraint
     const drag = d3.drag<SVGGElement, SimNode>()
       .on("start", (event, d) => {
         if (!event.active) sim.alphaTarget(0.3).restart()
         d.fx = d.x
-        d.fy = d.y
+        d.fy = d.tier === -1 ? (d.tierTargetY ?? d.y) : (tierYMap[d.tier] ?? d.y)
       })
       .on("drag", (event, d) => {
         d.fx = event.x
-        d.fy = event.y
+        d.fy = d.tier === -1 ? (d.tierTargetY ?? d.y) : (tierYMap[d.tier] ?? d.y)
       })
       .on("end", (event, d) => {
         if (!event.active) sim.alphaTarget(0)
@@ -1292,7 +1358,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const enforceSpatialConstraints = () => {
       // 1. Constrain file cards to their assigned tier Y level
       for (const d of simNodes) {
-        if (d.isHub) {
+        if (d.isHub && d.fy == null) {
           const targetY = d.tier === -1 ? (d.tierTargetY ?? TOP_TIER_Y) : (tierYMap[d.tier] ?? TOP_TIER_Y)
           if (typeof d.y === "number") {
             d.y += (targetY - d.y) * 0.45
@@ -1307,12 +1373,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
             const sIdx = d.satelliteIndex ?? 0
             const sTotal = d.satelliteTotal ?? 1
-            const symbolsPerRow = 5
+            const symbolsPerRow = 6
             const row = Math.floor(sIdx / symbolsPerRow)
             const col = sIdx % symbolsPerRow
             const countInThisRow = Math.min(symbolsPerRow, sTotal - row * symbolsPerRow)
-            const subX = hub.x + (col - (countInThisRow - 1) / 2) * 32
-            const subY = hub.y + 44 + row * 26
+            const subX = hub.x + (col - (countInThisRow - 1) / 2) * 30
+            const subY = hub.y + 44 + row * 28
 
             d.x += (subX - d.x) * 0.5
             d.y += (subY - d.y) * 0.5
@@ -1377,21 +1443,28 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const sY = s.y + 24 // Exit from bottom of caller card
         const tX = t.x
         const tY = t.y - 24 // Enter at top of callee card
+        const deltaY = tY - sY
 
-        if (t.y > s.y) {
-          // Smooth vertical cubic Bézier waterfall
+        if (deltaY > 20) {
+          // Smooth downward vertical cubic Bézier waterfall
+          const handle = Math.min(80, Math.max(30, deltaY * 0.5))
           const cp1x = sX
-          const cp1y = sY + 60
+          const cp1y = sY + handle
           const cp2x = tX
-          const cp2y = tY - 60
+          const cp2y = tY - handle
           return `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`
+        } else if (Math.abs(deltaY) <= 20) {
+          // Same-tier or lateral edge: smooth downward arc
+          const midX = (sX + tX) / 2
+          const drop = Math.min(50, Math.abs(tX - sX) * 0.25 + 24)
+          return `M ${sX} ${sY} Q ${midX} ${sY + drop} ${tX} ${tY}`
         } else {
-          // Sideways or reverse loop
-          const offsetX = tX >= sX ? 55 : -55
+          // Upward reverse loop: route cleanly around the side
+          const offsetX = tX >= sX ? 65 : -65
           const cp1x = sX + offsetX
-          const cp1y = sY + 35
+          const cp1y = sY + 30
           const cp2x = tX + offsetX
-          const cp2y = tY - 35
+          const cp2y = tY - 30
           return `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`
         }
       })
@@ -1427,6 +1500,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (!svgRef.current || displayNodes.length === 0) return
     const svg = d3.select(svgRef.current)
     const q = searchQuery.toLowerCase()
+    const activeNodeLookup = new Map<string, GraphNode>(displayNodes.map(n => [n.id, n]))
 
     const upstreamIds = new Set<string>()
     const downstreamIds = new Set<string>()
@@ -1558,7 +1632,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const isOutboundFromFocus = sId === selectedNodeId
       const isInboundToFocus = tId === selectedNodeId
 
-      const matchesSearch = !q || (d.source.label?.toLowerCase().includes(q) || d.target.label?.toLowerCase().includes(q))
+      const sLabel = typeof d.source === "object" ? (d.source.label || d.source.id || "") : (activeNodeLookup.get(d.source)?.label || String(d.source || ""))
+      const tLabel = typeof d.target === "object" ? (d.target.label || d.target.id || "") : (activeNodeLookup.get(d.target)?.label || String(d.target || ""))
+      const matchesSearch = !q || sLabel.toLowerCase().includes(q) || tLabel.toLowerCase().includes(q)
       const matchesType = !hiddenTypes.has(sType) && !hiddenTypes.has(tType)
 
       let linkOpacity = d.isSpoke ? 0.75 : 0.6
@@ -1601,7 +1677,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (hasFocus) {
         labelOpacity = isConnected ? 1.0 : 0.0
       } else if (q) {
-        const matchesSearch = d.source.label?.toLowerCase().includes(q) || d.target.label?.toLowerCase().includes(q)
+        const sLabel = typeof d.source === "object" ? (d.source.label || d.source.id || "") : (activeNodeLookup.get(d.source)?.label || String(d.source || ""))
+        const tLabel = typeof d.target === "object" ? (d.target.label || d.target.id || "") : (activeNodeLookup.get(d.target)?.label || String(d.target || ""))
+        const matchesSearch = sLabel.toLowerCase().includes(q) || tLabel.toLowerCase().includes(q)
         labelOpacity = matchesSearch ? 0.8 : 0.0
       }
 
