@@ -7,6 +7,95 @@ import { getGraphData, downloadGraph, getGraphVisualizationHtml, getSymbolDetail
 import type { GraphNode, GraphEdge, SymbolDetailsResponse } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
+// ==========================================
+// Types & Interfaces
+// ==========================================
+
+export interface ArchTierInfo {
+  tier: number
+  key: string
+  label: string
+  shortLabel: string
+  sublabel: string
+  badgeColor: string
+  borderColor: string
+  fillColor: string
+}
+
+export const ARCH_TIERS: ArchTierInfo[] = [
+  {
+    tier: 0,
+    key: "entry",
+    label: "Entry Points & Server Root",
+    shortLabel: "Tier 0 • Entry",
+    sublabel: "Application bootstrap, server initialization, CLI triggers",
+    badgeColor: "#38bdf8",
+    borderColor: "rgba(56, 189, 248, 0.45)",
+    fillColor: "rgba(56, 189, 248, 0.04)",
+  },
+  {
+    tier: 1,
+    key: "routing",
+    label: "HTTP Controllers & Routing",
+    shortLabel: "Tier 1 • Routing",
+    sublabel: "API routes, endpoint controllers, request routing",
+    badgeColor: "#818cf8",
+    borderColor: "rgba(129, 140, 248, 0.45)",
+    fillColor: "rgba(129, 140, 248, 0.04)",
+  },
+  {
+    tier: 2,
+    key: "services",
+    label: "Core Business Logic & Topology",
+    shortLabel: "Tier 2 • Services",
+    sublabel: "Graph topology engines, domain services & orchestration",
+    badgeColor: "#10b981",
+    borderColor: "rgba(16, 185, 129, 0.45)",
+    fillColor: "rgba(16, 185, 129, 0.04)",
+  },
+  {
+    tier: 3,
+    key: "parsing",
+    label: "Parsers, Symbols & Manifests",
+    shortLabel: "Tier 3 • Parsing",
+    sublabel: "AST parsing, symbol indexing & manifest tracking",
+    badgeColor: "#f59e0b",
+    borderColor: "rgba(245, 158, 11, 0.45)",
+    fillColor: "rgba(245, 158, 11, 0.04)",
+  },
+  {
+    tier: 4,
+    key: "config",
+    label: "Configuration & State",
+    shortLabel: "Tier 4 • Config",
+    sublabel: "Environment configuration, settings, schemas & constants",
+    badgeColor: "#ec4899",
+    borderColor: "rgba(236, 72, 153, 0.45)",
+    fillColor: "rgba(236, 72, 153, 0.04)",
+  },
+]
+
+export const UTILITY_TIER_INFO: ArchTierInfo = {
+  tier: -1,
+  key: "utility",
+  label: "Utility & Non-Code Docs",
+  shortLabel: "Utility",
+  sublabel: "Documentation, specifications & standalone assets",
+  badgeColor: "#94a3b8",
+  borderColor: "rgba(148, 163, 184, 0.45)",
+  fillColor: "rgba(148, 163, 184, 0.04)",
+}
+
+export function getTierInfo(tier: number): ArchTierInfo {
+  if (tier >= 0 && tier < ARCH_TIERS.length) {
+    return ARCH_TIERS[tier]
+  }
+  return UTILITY_TIER_INFO
+}
+
+export const TIER_SPACING = 210
+export const TOP_TIER_Y = 140
+
 interface SimNode extends GraphNode {
   x: number
   y: number
@@ -14,7 +103,13 @@ interface SimNode extends GraphNode {
   vy: number
   fx?: number | null
   fy?: number | null
-  // Architecture and Hub-and-Spoke properties
+  // Layered Architecture DAG Tier properties
+  tier: number
+  tierKey: string
+  tierLabel: string
+  tierTargetX?: number
+  tierTargetY?: number
+  // File Hub & Sub-grid Satellite properties
   isArchFile?: boolean
   isHub?: boolean
   isSatellite?: boolean
@@ -22,9 +117,8 @@ interface SimNode extends GraphNode {
   parentHubLabel?: string
   satelliteIndex?: number
   satelliteTotal?: number
-  ringIndex?: number
-  orbitRadius?: number
-  orbitAngle?: number
+  subGridCol?: number
+  subGridRow?: number
   moduleGroup?: string
   symbolCount?: number
   inboundCouplings?: number
@@ -83,10 +177,10 @@ const PALETTE = {
     default: { fill: "#1e293b", stroke: "#475569", text: "#cbd5e1", badge: "#94a3b8", bg: "rgba(71, 85, 105, 0.12)" },
   },
   links: {
-    default: "#334155",
-    calls: "#475569",
-    imports: "#3b82f6",
-    extends: "#6366f1",
+    default: "#475569",
+    calls: "#60a5fa",
+    imports: "#818cf8",
+    extends: "#a78bfa",
     spoke: "rgba(56, 189, 248, 0.35)",
     upstreamActive: "#38bdf8",   // Dependencies (imported by this node)
     downstreamActive: "#fbbf24", // Consumers (imports this node)
@@ -141,162 +235,6 @@ function getNodeRadius(type: string, node?: any): number {
   return isGod ? base + degBonus + 3 : base + degBonus
 }
 
-const COMMUNITY_PALETTE = [
-  { fill: "rgba(56, 189, 248, 0.07)", stroke: "rgba(56, 189, 248, 0.35)", badge: "#38bdf8" }, // cyan
-  { fill: "rgba(129, 140, 248, 0.07)", stroke: "rgba(129, 140, 248, 0.35)", badge: "#818cf8" }, // indigo
-  { fill: "rgba(16, 185, 129, 0.07)", stroke: "rgba(16, 185, 129, 0.35)", badge: "#10b981" }, // emerald
-  { fill: "rgba(245, 158, 11, 0.07)", stroke: "rgba(245, 158, 11, 0.35)", badge: "#f59e0b" }, // amber
-  { fill: "rgba(236, 72, 153, 0.07)", stroke: "rgba(236, 72, 153, 0.35)", badge: "#ec4899" }, // pink
-  { fill: "rgba(168, 85, 247, 0.07)", stroke: "rgba(168, 85, 247, 0.35)", badge: "#a855f7" }, // purple
-  { fill: "rgba(20, 184, 166, 0.07)", stroke: "rgba(20, 184, 166, 0.35)", badge: "#14b8a6" }, // teal
-  { fill: "rgba(249, 115, 22, 0.07)", stroke: "rgba(249, 115, 22, 0.35)", badge: "#f97316" }, // orange
-]
-
-interface IslandCenter {
-  x: number
-  y: number
-  communityId: number
-  name: string
-  count: number
-  islandRadius: number
-}
-
-function computeIslandCenters(nodes: (SimNode | GraphNode)[], width: number, height: number): Map<number, IslandCenter> {
-  const commMap = new Map<number, { name: string; hubCount: number; symbolCount: number }>()
-  for (const n of nodes) {
-    const cId = (n as any).community_id ?? n.properties?.community_id ?? 0
-    const cName = (n as any).community_name || n.properties?.community_name || `Cluster ${cId}`
-    const existing = commMap.get(cId) || { name: cName, hubCount: 0, symbolCount: 0 }
-    if ((n as any).isHub || n.type === "CodeFile" || n.type === "Module" || n.type === "File") {
-      existing.hubCount++
-      existing.symbolCount += (n.properties?.symbolCount || 1)
-    } else {
-      existing.symbolCount++
-    }
-    commMap.set(cId, existing)
-  }
-
-  const cIds = Array.from(commMap.keys()).sort((a, b) => a - b)
-  const K = cIds.length
-  const centers = new Map<number, IslandCenter>()
-
-  if (K === 0) return centers
-
-  // Dynamic radius for each island continent
-  const islandRadii = new Map<number, number>()
-  cIds.forEach((cId) => {
-    const info = commMap.get(cId)!
-    const rad = Math.max(140, Math.min(270, 100 + info.hubCount * 36 + Math.sqrt(info.symbolCount) * 10))
-    islandRadii.set(cId, rad)
-  })
-
-  if (K === 1) {
-    const cId = cIds[0]
-    centers.set(cId, {
-      x: width / 2,
-      y: height / 2,
-      communityId: cId,
-      name: commMap.get(cId)?.name || "Primary Architecture",
-      count: commMap.get(cId)?.hubCount || 1,
-      islandRadius: islandRadii.get(cId) || 160,
-    })
-    return centers
-  }
-
-  // Determine archipelago radius such that adjacent islands have guaranteed clearance (gap >= 95px)
-  let maxAdjacentSum = 0
-  const gap = 95
-  for (let i = 0; i < K; i++) {
-    const r1 = islandRadii.get(cIds[i]) || 180
-    const r2 = islandRadii.get(cIds[(i + 1) % K]) || 180
-    maxAdjacentSum = Math.max(maxAdjacentSum, r1 + r2 + gap)
-  }
-
-  const sinHalf = Math.sin(Math.PI / K)
-  const requiredDist = maxAdjacentSum / (2 * sinHalf)
-  const archipelagoRadius = Math.max(320, requiredDist)
-
-  cIds.forEach((cId, idx) => {
-    const angle = (2 * Math.PI * idx) / K - Math.PI / 2
-    centers.set(cId, {
-      x: width / 2 + archipelagoRadius * Math.cos(angle),
-      y: height / 2 + archipelagoRadius * Math.sin(angle),
-      communityId: cId,
-      name: commMap.get(cId)!.name,
-      count: commMap.get(cId)!.hubCount,
-      islandRadius: islandRadii.get(cId) || 180,
-    })
-  })
-
-  return centers
-}
-
-interface CommunityHullData {
-  communityId: number
-  communityName: string
-  pathD: string
-  centroid: [number, number]
-}
-
-function computeCommunityHulls(nodes: SimNode[]): CommunityHullData[] {
-  const commMap = new Map<number, { name: string; nodes: SimNode[] }>()
-  for (const n of nodes) {
-    const cId = n.community_id ?? n.properties?.community_id ?? 0
-    const cName = n.community_name || n.properties?.community_name || `Cluster ${cId}`
-    if (!commMap.has(cId)) {
-      commMap.set(cId, { name: cName, nodes: [] })
-    }
-    commMap.get(cId)!.nodes.push(n)
-  }
-
-  const results: CommunityHullData[] = []
-  const hullLine = d3.line<[number, number]>().curve(d3.curveCatmullRomClosed)
-
-  commMap.forEach(({ name, nodes: cNodes }, cId) => {
-    if (cNodes.length === 0) return
-    const pts: [number, number][] = []
-    const pad = 48
-    const angles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4]
-
-    for (const node of cNodes) {
-      if (typeof node.x !== "number" || typeof node.y !== "number") continue
-      // Hub cards span 156x48, satellites are circles
-      const cardHalfW = node.isHub ? 80 : (getNodeRadius(node.type, node) + 6)
-      const cardHalfH = node.isHub ? 28 : (getNodeRadius(node.type, node) + 6)
-
-      for (const a of angles) {
-        pts.push([
-          node.x + (cardHalfW + pad) * Math.cos(a),
-          node.y + (cardHalfH + pad) * Math.sin(a),
-        ])
-      }
-    }
-
-    if (pts.length < 3) return
-    const hull = d3.polygonHull(pts)
-    if (!hull || hull.length < 3) return
-
-    const cx = d3.mean(hull, (p) => p[0]) || 0
-    const cy = d3.mean(hull, (p) => p[1]) || 0
-    const expanded: [number, number][] = hull.map(([px, py]) => [
-      cx + (px - cx) * 1.04,
-      cy + (py - cy) * 1.04,
-    ])
-
-    const pathD = hullLine(expanded)
-    if (pathD) {
-      results.push({
-        communityId: cId,
-        communityName: name,
-        pathD,
-        centroid: [cx, cy],
-      })
-    }
-  })
-
-  return results
-}
-
 function getParentFileId(node: GraphNode): string {
   if (node.id.startsWith("file://")) return node.id
   if (node.type === "Module" || node.type === "File" || node.type === "CodeFile") return node.id
@@ -320,6 +258,172 @@ function getDirName(filePath: string): string {
   return lastFolders.length > 18 ? "…" + lastFolders.slice(-17) : lastFolders
 }
 
+/**
+ * Computes topological tier levels (ranks) for all file nodes:
+ * Tier 0: Entry Points & Server Root (main.py, app.py)
+ * Tier 1: HTTP Controllers & Routing (graph_routes.py)
+ * Tier 2: Core Business Logic & Topology Engines (cognee_service.py, graph_topology.py)
+ * Tier 3: Parsers, Symbol Table, Manifest Manager (ast_parser.py, symbol_table.py, manifest_manager.py)
+ * Tier 4: Configuration & State (config.py)
+ * Tier -1: Side Utility Tier (isolated non-code files e.g. README.md)
+ */
+function computeNodeTiers(
+  fileNodes: GraphNode[],
+  couplingEdges: { source: string; target: string; count: number }[]
+): Map<string, { tier: number; tierInfo: ArchTierInfo }> {
+  const result = new Map<string, { tier: number; tierInfo: ArchTierInfo }>()
+  if (fileNodes.length === 0) return result
+
+  // 1. Classify non-code / documentation files to side utility tier
+  const nonCodeIds = new Set<string>()
+  for (const n of fileNodes) {
+    const rawPath = (n.properties?.file_path || n.source || n.label || "").toLowerCase()
+    const isDoc = n.type === "Document" || n.type === "DocumentChunk" || n.type === "Documentation" || n.type === "Spec" || n.type === "TextSummary"
+    const isNonCodeExt = rawPath.endsWith(".md") || rawPath.endsWith(".txt") || rawPath.endsWith(".rst") || rawPath.endsWith(".json") || rawPath.endsWith(".yml") || rawPath.endsWith(".yaml")
+    const isDocName = rawPath.includes("readme") || rawPath.includes("license") || rawPath.includes("task")
+    if (isDoc || isNonCodeExt || isDocName) {
+      nonCodeIds.add(n.id)
+      result.set(n.id, { tier: -1, tierInfo: UTILITY_TIER_INFO })
+    }
+  }
+
+  // 2. Code files
+  const codeNodes = fileNodes.filter(n => !nonCodeIds.has(n.id))
+  if (codeNodes.length === 0) return result
+
+  const codeNodeIds = new Set(codeNodes.map(n => n.id))
+  const inDegree = new Map<string, number>()
+  const outDegree = new Map<string, number>()
+  const adj = new Map<string, string[]>()
+  for (const n of codeNodes) {
+    inDegree.set(n.id, 0)
+    outDegree.set(n.id, 0)
+    adj.set(n.id, [])
+  }
+
+  for (const edge of couplingEdges) {
+    if (codeNodeIds.has(edge.source) && codeNodeIds.has(edge.target) && edge.source !== edge.target) {
+      adj.get(edge.source)?.push(edge.target)
+      outDegree.set(edge.source, (outDegree.get(edge.source) || 0) + 1)
+      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
+    }
+  }
+
+  const getSemanticTier = (node: GraphNode): number => {
+    const label = node.label.toLowerCase()
+    const path = (node.properties?.file_path || node.source || "").toLowerCase()
+
+    if (label.startsWith("main.") || label.startsWith("app.") || label.startsWith("server.") || label.startsWith("index.") || label.startsWith("cli.")) {
+      return 0
+    }
+    if (label.includes("route") || label.includes("router") || label.includes("controller") || label.includes("endpoint") || label.includes("api") || path.includes("/routes") || path.includes("/api")) {
+      return 1
+    }
+    if (label.includes("service") || label.includes("topology") || label.includes("engine") || label.includes("logic") || label.includes("orchestrat") || (label.includes("manager") && label.includes("graph"))) {
+      return 2
+    }
+    if (label.includes("parser") || label.includes("ast") || label.includes("symbol") || label.includes("manifest") || label.includes("lexer") || label.includes("table")) {
+      return 3
+    }
+    if (label.includes("config") || label.includes("setting") || label.includes("env") || label.includes("constant") || label.includes("schema") || label.includes("type") || label.includes("state")) {
+      return 4
+    }
+    return -99
+  }
+
+  // Identify entry point roots (inDegree == 0 or semantic hint 0)
+  let roots = codeNodes.filter(n => (inDegree.get(n.id) || 0) === 0 || getSemanticTier(n) === 0)
+  if (roots.length === 0) {
+    const sorted = [...codeNodes].sort((a, b) => (inDegree.get(a.id) || 0) - (inDegree.get(b.id) || 0))
+    roots = [sorted[0]]
+  }
+
+  // Break cycles by filtering back-edges using DFS state (0: unvisited, 1: visiting, 2: visited)
+  const visitState = new Map<string, number>()
+  const dagAdj = new Map<string, string[]>()
+  for (const n of codeNodes) {
+    visitState.set(n.id, 0)
+    dagAdj.set(n.id, [])
+  }
+
+  const dfsFilterCycles = (u: string) => {
+    visitState.set(u, 1)
+    for (const v of adj.get(u) || []) {
+      const st = visitState.get(v) ?? 0
+      if (st === 0) {
+        dagAdj.get(u)?.push(v)
+        dfsFilterCycles(v)
+      } else if (st === 2) {
+        dagAdj.get(u)?.push(v)
+      }
+    }
+    visitState.set(u, 2)
+  }
+
+  for (const r of roots) {
+    if (visitState.get(r.id) === 0) {
+      dfsFilterCycles(r.id)
+    }
+  }
+  for (const n of codeNodes) {
+    if (visitState.get(n.id) === 0) {
+      dfsFilterCycles(n.id)
+    }
+  }
+
+  // Calculate topological depth using longest path relaxation on the cycle-free DAG
+  const depth = new Map<string, number>()
+  for (const n of codeNodes) {
+    depth.set(n.id, -1)
+  }
+  for (const r of roots) {
+    depth.set(r.id, 0)
+  }
+
+  for (let iter = 0; iter < codeNodes.length; iter++) {
+    let changed = false
+    for (const [u, targets] of dagAdj.entries()) {
+      const du = depth.get(u) ?? -1
+      if (du >= 0) {
+        for (const v of targets) {
+          const dv = depth.get(v) ?? -1
+          const candidate = Math.min(4, du + 1)
+          if (candidate > dv) {
+            depth.set(v, candidate)
+            changed = true
+          }
+        }
+      }
+    }
+    if (!changed) break
+  }
+
+  // Assign final architectural tier
+  for (const node of codeNodes) {
+    const topoDepth = depth.get(node.id) ?? -1
+    const semanticHint = getSemanticTier(node)
+
+    let finalTier: number
+    if (semanticHint >= 0) {
+      // Explicit architectural role takes precedence
+      finalTier = semanticHint
+    } else if (topoDepth >= 0) {
+      finalTier = Math.min(4, topoDepth)
+    } else {
+      finalTier = (inDegree.get(node.id) || 0) === 0 ? 0 : ((outDegree.get(node.id) || 0) === 0 ? 4 : 2)
+    }
+
+    finalTier = Math.max(0, Math.min(4, finalTier))
+    result.set(node.id, { tier: finalTier, tierInfo: ARCH_TIERS[finalTier] })
+  }
+
+  return result
+}
+
+// ==========================================
+// Main Component
+// ==========================================
+
 export default function KnowledgeGraph({ projectName }: { projectName: string }) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -336,7 +440,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
   const [detailNode, setDetailNode] = useState<GraphNode | null>(null)
   const [symbolDetails, setSymbolDetails] = useState<SymbolDetailsResponse | null>(null)
   const [symbolLoading, setSymbolLoading] = useState(false)
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const [dimensions, setDimensions] = useState({ width: 900, height: 700 })
   const [searchQuery, setSearchQuery] = useState("")
   const [filterOpen, setFilterOpen] = useState(false)
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set())
@@ -371,13 +475,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (!el) return
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect
-      setDimensions({ width: Math.max(width, 600), height: Math.max(height, 500) })
+      setDimensions({ width: Math.max(width, 700), height: Math.max(height, 550) })
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
 
-  // Toggle single hub constellation expansion
+  // Toggle single file card child symbol sub-grid expansion
   const toggleHubExpansion = useCallback((hubId: string) => {
     setExpandedHubIds(prev => {
       const next = new Set(prev)
@@ -390,8 +494,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     })
   }, [])
 
-  // Hierarchical Hub-and-Spoke Constellation Model:
-  // Primary File/Module Hubs are authoritative nodes; internal symbols orbit as radial satellites.
+  // ==========================================================
+  // Layered Architectural Model Construction & Tier Assignment
+  // ==========================================================
   const { displayNodes, displayEdges, allArchNodes } = useMemo(() => {
     if (rawNodes.length === 0) {
       return { displayNodes: [], displayEdges: [], allArchNodes: [] }
@@ -402,7 +507,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const fileSymbolsCount = new Map<string, number>()
     const fileSymbolsList = new Map<string, GraphNode[]>()
 
-    // Identify explicitly declared File/Module nodes first
     for (const node of rawNodes) {
       const isFileNode = node.id.startsWith("file://") || node.type === "Module" || node.type === "File" || node.type === "CodeFile"
       if (isFileNode) {
@@ -421,10 +525,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       }
     }
 
-    // Group remaining symbols (classes, functions) into their parent file
     for (const node of rawNodes) {
       const isFileNode = node.id.startsWith("file://") || node.type === "Module" || node.type === "File" || node.type === "CodeFile"
-      if (isFileNode) continue // Never treat a file node as an internal symbol of itself
+      if (isFileNode) continue
 
       const parentFileId = getParentFileId(node)
       if (node.id === parentFileId) continue
@@ -447,52 +550,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       fileSymbolsList.set(parentFileId, list)
     }
 
-    // Attach aggregated stats to file nodes (Authoritative Hubs)
-    interface HubGraphNode extends GraphNode {
-      isHub?: boolean
-      community_id?: number
-      community_name?: string
-      is_god_node?: boolean
-      symbolCount?: number
-    }
-
-    const archNodes: HubGraphNode[] = Array.from(fileNodeMap.values()).map(fn => {
-      const symList = fileSymbolsList.get(fn.id) || []
-      const bestSym = symList.length > 0 ? symList.reduce((max, s) => {
-        const d1 = s.properties?.degree ?? (s as any).degree ?? 0
-        const d2 = max.properties?.degree ?? (max as any).degree ?? 0
-        return d1 > d2 ? s : max
-      }, symList[0]) : null
-
-      const commId = fn.properties?.community_id ?? (fn as any).community_id ?? bestSym?.properties?.community_id ?? (bestSym as any)?.community_id ?? 0
-      const commName = fn.properties?.community_name || (fn as any).community_name || bestSym?.properties?.community_name || (bestSym as any)?.community_name || fn.label
-      const isGod = Boolean(fn.properties?.is_god_node ?? (fn as any).is_god_node ?? bestSym?.properties?.is_god_node ?? (bestSym as any)?.is_god_node)
-
-      return {
-        ...fn,
-        isHub: true,
-        community_id: commId,
-        community_name: commName,
-        is_god_node: isGod,
-        properties: {
-          ...fn.properties,
-          isHub: true,
-          community_id: commId,
-          community_name: commName,
-          is_god_node: isGod,
-          symbolCount: fileSymbolsCount.get(fn.id) || 1,
-          symbols: symList.map(s => ({
-            id: s.id,
-            label: s.label,
-            type: s.type,
-            source: s.source,
-            properties: s.properties
-          })),
-        }
-      }
-    })
-
-    // 2. Build Highway Couplings (inter-hub cross-file imports & calls)
+    // 2. Build Highway Couplings (inter-file caller-to-callee dependencies)
     const nodeLookup = new Map(rawNodes.map(n => [n.id, n]))
     const couplingMap = new Map<string, { source: string; target: string; count: number; relations: Set<string> }>()
 
@@ -513,6 +571,65 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       }
     }
 
+    const initialArchNodes = Array.from(fileNodeMap.values())
+    const nodeTiers = computeNodeTiers(initialArchNodes, Array.from(couplingMap.values()))
+
+    interface TieredHubGraphNode extends GraphNode {
+      isHub?: boolean
+      tier: number
+      tierKey: string
+      tierLabel: string
+      community_id?: number
+      community_name?: string
+      is_god_node?: boolean
+      symbolCount?: number
+    }
+
+    const archNodes: TieredHubGraphNode[] = initialArchNodes.map(fn => {
+      const symList = fileSymbolsList.get(fn.id) || []
+      const bestSym = symList.length > 0 ? symList.reduce((max, s) => {
+        const d1 = s.properties?.degree ?? (s as any).degree ?? 0
+        const d2 = max.properties?.degree ?? (max as any).degree ?? 0
+        return d1 > d2 ? s : max
+      }, symList[0]) : null
+
+      const tInfo = nodeTiers.get(fn.id)?.tierInfo || UTILITY_TIER_INFO
+      const tNum = nodeTiers.get(fn.id)?.tier ?? -1
+
+      const commId = fn.properties?.community_id ?? (fn as any).community_id ?? bestSym?.properties?.community_id ?? (bestSym as any)?.community_id ?? 0
+      const commName = fn.properties?.community_name || (fn as any).community_name || bestSym?.properties?.community_name || (bestSym as any)?.community_name || fn.label
+      const isGod = Boolean(fn.properties?.is_god_node ?? (fn as any).is_god_node ?? bestSym?.properties?.is_god_node ?? (bestSym as any)?.is_god_node)
+
+      return {
+        ...fn,
+        isHub: true,
+        tier: tNum,
+        tierKey: tInfo.key,
+        tierLabel: tInfo.label,
+        community_id: commId,
+        community_name: commName,
+        is_god_node: isGod,
+        properties: {
+          ...fn.properties,
+          isHub: true,
+          tier: tNum,
+          tierKey: tInfo.key,
+          tierLabel: tInfo.label,
+          community_id: commId,
+          community_name: commName,
+          is_god_node: isGod,
+          symbolCount: fileSymbolsCount.get(fn.id) || 1,
+          symbols: symList.map(s => ({
+            id: s.id,
+            label: s.label,
+            type: s.type,
+            source: s.source,
+            properties: s.properties
+          })),
+        }
+      }
+    })
+
     const highwayEdges: GraphEdge[] = Array.from(couplingMap.values()).map(c => ({
       source: c.source,
       target: c.target,
@@ -525,7 +642,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       }
     }))
 
-    // Determine which hubs reveal their satellite constellations
+    // Determine which file cards have expanded child symbol sub-grids
     const activeNodes: GraphNode[] = [...archNodes]
     const activeEdges: GraphEdge[] = [...highwayEdges]
 
@@ -536,7 +653,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       expandedHubIds.forEach(id => hubsToExpand.add(id))
     }
 
-    // Add satellite nodes and spoke links for expanded hubs
+    // Add child symbols in sub-grid format
     for (const hub of archNodes) {
       if (!hubsToExpand.has(hub.id)) continue
       const symList = fileSymbolsList.get(hub.id) || []
@@ -544,56 +661,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (sCount === 0) continue
 
       symList.forEach((sym, sIdx) => {
-        let orbitRadius = 76
-        let ringIndex = 0
-        let ringTotal = sCount
-        let posInRing = sIdx
-        let angleOffset = -Math.PI / 2
-
-        if (sCount <= 8) {
-          orbitRadius = 76
-          ringTotal = sCount
-          posInRing = sIdx
-        } else if (sCount <= 20) {
-          const innerCount = 6
-          const outerCount = sCount - innerCount
-          if (sIdx < innerCount) {
-            orbitRadius = 68
-            ringIndex = 0
-            ringTotal = innerCount
-            posInRing = sIdx
-          } else {
-            orbitRadius = 104
-            ringIndex = 1
-            ringTotal = outerCount
-            posInRing = sIdx - innerCount
-            angleOffset = -Math.PI / 2 + Math.PI / outerCount
-          }
-        } else {
-          const innerCount = 6
-          const midCount = 10
-          const outerCount = sCount - innerCount - midCount
-          if (sIdx < innerCount) {
-            orbitRadius = 66
-            ringIndex = 0
-            ringTotal = innerCount
-            posInRing = sIdx
-          } else if (sIdx < innerCount + midCount) {
-            orbitRadius = 100
-            ringIndex = 1
-            ringTotal = midCount
-            posInRing = sIdx - innerCount
-            angleOffset = -Math.PI / 2 + Math.PI / midCount
-          } else {
-            orbitRadius = 138
-            ringIndex = 2
-            ringTotal = outerCount
-            posInRing = sIdx - innerCount - midCount
-            angleOffset = -Math.PI / 2 + Math.PI / outerCount
-          }
-        }
-
-        const orbitAngle = angleOffset + (2 * Math.PI * posInRing) / ringTotal
+        const symbolsPerRow = 6
+        const row = Math.floor(sIdx / symbolsPerRow)
+        const col = sIdx % symbolsPerRow
 
         const satNode: GraphNode = {
           ...sym,
@@ -604,9 +674,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             parentHubLabel: hub.label,
             satelliteIndex: sIdx,
             satelliteTotal: sCount,
-            ringIndex,
-            orbitRadius,
-            orbitAngle,
+            subGridCol: col,
+            subGridRow: row,
+            tier: hub.tier,
+            tierKey: hub.tierKey,
+            tierLabel: hub.tierLabel,
             community_id: hub.community_id,
             community_name: hub.community_name,
           }
@@ -616,15 +688,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         ;(satNode as any).parentHubLabel = hub.label
         ;(satNode as any).satelliteIndex = sIdx
         ;(satNode as any).satelliteTotal = sCount
-        ;(satNode as any).ringIndex = ringIndex
-        ;(satNode as any).orbitRadius = orbitRadius
-        ;(satNode as any).orbitAngle = orbitAngle
+        ;(satNode as any).subGridCol = col
+        ;(satNode as any).subGridRow = row
+        ;(satNode as any).tier = hub.tier
+        ;(satNode as any).tierKey = hub.tierKey
+        ;(satNode as any).tierLabel = hub.tierLabel
         ;(satNode as any).community_id = hub.community_id
         ;(satNode as any).community_name = hub.community_name
 
         activeNodes.push(satNode)
 
-        // Spoke link connecting Hub -> Satellite
+        // Spoke connector from parent card to child symbol
         activeEdges.push({
           source: hub.id,
           target: sym.id,
@@ -638,7 +712,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
     }
 
-    // Include internal symbol-to-symbol calls between visible satellites
+    // Intra-file symbol calls
     if (hubsToExpand.size > 0) {
       const visibleNodeIds = new Set(activeNodes.map(n => n.id))
       for (const edge of rawEdges) {
@@ -666,7 +740,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     return { displayNodes: activeNodes, displayEdges: activeEdges, allArchNodes: archNodes }
   }, [graphLevel, rawNodes, rawEdges, expandedHubIds])
 
-  // Toggle expand/collapse all satellite constellations
+  // Toggle expand/collapse all file card sub-grids
   const handleToggleExpandAll = useCallback(() => {
     if (expandedHubIds.size > 0) {
       setExpandedHubIds(new Set())
@@ -700,7 +774,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     setSelectedNodeId(null)
   }, [])
 
-  // Render D3 Simulation and SVGs
+  // ==========================================================
+  // Render D3 Simulation with Layered Architectural Top-to-Bottom Flow
+  // ==========================================================
   useEffect(() => {
     if (!svgRef.current || displayNodes.length === 0) return
 
@@ -709,20 +785,20 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     svg.selectAll("*").remove()
     svg.attr("width", width).attr("height", height)
 
-    // Sleek directional markers
+    // Markers for downward dependency routing
     const defs = svg.append("defs")
 
     const createMarker = (id: string, color: string) => {
       defs.append("marker")
         .attr("id", id)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 9)
+        .attr("refX", 8)
         .attr("refY", 0)
-        .attr("markerWidth", 7)
-        .attr("markerHeight", 7)
+        .attr("markerWidth", 6.5)
+        .attr("markerHeight", 6.5)
         .attr("orient", "auto")
         .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
+        .attr("d", "M0,-4.5L9,0L0,4.5")
         .attr("fill", color)
     }
 
@@ -738,7 +814,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         g.attr("transform", event.transform)
         const k = event.transform.k
         zoomScaleRef.current = k
-        // Semantic LOD label culling on zoom
         svg.selectAll<SVGTextElement, SimNode>("g.nodes text.node-label").style("opacity", function(d) {
           if (!d) return "0"
           const isGod = Boolean(d.properties?.is_god_node || (d as any).is_god_node || (d.properties?.degree || 0) >= 12)
@@ -748,7 +823,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     svg.call(zoom)
     zoomRef.current = zoom
 
-    // Canvas background click clears selection & focus
     svg.on("click", (event) => {
       if (event.target === svgRef.current) {
         setSelectedNodeId(null)
@@ -761,44 +835,91 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const nodeMap = new Map(displayNodes.map((n) => [n.id, n]))
     const filteredEdges = displayEdges.filter((e) => nodeMap.has(e.source) && nodeMap.has(e.target))
 
-    // Compute Multi-focal Island Centers
-    const islandCenters = computeIslandCenters(displayNodes as any, width, height)
+    // Calculate dynamic vertical tier layout adapting to expanded child symbol sub-grids
+    const hubNodes = displayNodes.filter(n => (n as any).isHub)
+    const tierCardMaxRows: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }
 
-    // Pre-calculate Hub positions near their respective community island centers
-    const hubPositions = new Map<string, { x: number; y: number }>()
-    for (const n of displayNodes) {
-      if ((n as any).isHub) {
-        const cId = (n as any).community_id ?? n.properties?.community_id ?? 0
-        const center = islandCenters.get(cId) || { x: width / 2, y: height / 2 }
-        const hx = center.x + (Math.random() - 0.5) * 130
-        const hy = center.y + (Math.random() - 0.5) * 130
-        hubPositions.set(n.id, { x: hx, y: hy })
+    for (const h of hubNodes) {
+      const t = (h as any).tier ?? -1
+      if (t >= 0 && t <= 4 && expandedHubIds.has(h.id)) {
+        const sCount = (h as any).symbolCount ?? h.properties?.symbolCount ?? 0
+        if (sCount > 0) {
+          const rows = Math.ceil(sCount / 6)
+          tierCardMaxRows[t] = Math.max(tierCardMaxRows[t], rows)
+        }
       }
     }
+
+    const tierHeights: Record<number, number> = { 0: 48, 1: 48, 2: 48, 3: 48, 4: 48 }
+    for (let t = 0; t <= 4; t++) {
+      const extraHeight = tierCardMaxRows[t] > 0 ? (24 + tierCardMaxRows[t] * 28) : 0
+      tierHeights[t] = 48 + extraHeight
+    }
+
+    const BASE_VERTICAL_GAP = 140
+    const tierYMap: Record<number, number> = {
+      0: TOP_TIER_Y,
+      1: TOP_TIER_Y + tierHeights[0] + BASE_VERTICAL_GAP,
+      2: TOP_TIER_Y + tierHeights[0] + tierHeights[1] + 2 * BASE_VERTICAL_GAP,
+      3: TOP_TIER_Y + tierHeights[0] + tierHeights[1] + tierHeights[2] + 3 * BASE_VERTICAL_GAP,
+      4: TOP_TIER_Y + tierHeights[0] + tierHeights[1] + tierHeights[2] + tierHeights[3] + 4 * BASE_VERTICAL_GAP,
+    }
+
+    // Calculate initial structured coordinates per tier
+    const tierTargets = new Map<string, { x: number; y: number }>()
+
+    // Determine max cards in any code tier to establish horizontal width
+    const tierCounts = [0, 1, 2, 3, 4].map(t => hubNodes.filter(n => (n as any).tier === t).length)
+    const maxTierCardCount = Math.max(1, ...tierCounts)
+    const horizontalSpacing = Math.max(220, Math.min(290, 840 / maxTierCardCount))
+
+    for (let t = 0; t <= 4; t++) {
+      const nodesInTier = hubNodes.filter(n => (n as any).tier === t)
+      const K = nodesInTier.length
+      if (K === 0) continue
+      const startX = width / 2 - ((K - 1) * horizontalSpacing) / 2
+      nodesInTier.forEach((node, idx) => {
+        tierTargets.set(node.id, {
+          x: startX + idx * horizontalSpacing,
+          y: tierYMap[t],
+        })
+      })
+    }
+
+    // Side utility tier docking column
+    const utilityNodes = hubNodes.filter(n => (n as any).tier === -1)
+    const utilityColumnX = width / 2 + Math.max(380, (maxTierCardCount * horizontalSpacing) / 2 + 150)
+    utilityNodes.forEach((node, idx) => {
+      tierTargets.set(node.id, {
+        x: utilityColumnX,
+        y: TOP_TIER_Y + 20 + idx * 75,
+      })
+    })
 
     const simNodes: SimNode[] = displayNodes.map((n) => {
       const isHub = Boolean((n as any).isHub ?? n.properties?.isHub ?? false)
       const isSat = Boolean((n as any).isSatellite ?? n.properties?.isSatellite ?? false)
-      const cId = (n as any).community_id ?? n.properties?.community_id ?? 0
-      const cCenter = islandCenters.get(cId) || { x: width / 2, y: height / 2 }
+      const tier = (n as any).tier ?? n.properties?.tier ?? -1
+      const tierInfo = getTierInfo(tier)
 
       let initX = width / 2
       let initY = height / 2
 
       if (isHub) {
-        const pos = hubPositions.get(n.id) || cCenter
-        initX = pos.x
-        initY = pos.y
+        const target = tierTargets.get(n.id) || { x: width / 2, y: TOP_TIER_Y }
+        initX = target.x
+        initY = target.y
       } else if (isSat) {
         const pHubId = (n as any).parentHubId || n.properties?.parentHubId
-        const parentPos = (pHubId && hubPositions.get(pHubId)) || cCenter
-        const rad = (n as any).orbitRadius ?? n.properties?.orbitRadius ?? 76
-        const angle = (n as any).orbitAngle ?? n.properties?.orbitAngle ?? 0
-        initX = parentPos.x + rad * Math.cos(angle)
-        initY = parentPos.y + rad * Math.sin(angle)
-      } else {
-        initX = cCenter.x + (Math.random() - 0.5) * 120
-        initY = cCenter.y + (Math.random() - 0.5) * 120
+        const parentPos = (pHubId && tierTargets.get(pHubId)) || { x: width / 2, y: TOP_TIER_Y }
+        const sIdx = (n as any).satelliteIndex ?? 0
+        const sTotal = (n as any).satelliteTotal ?? 1
+        const symbolsPerRow = 6
+        const row = Math.floor(sIdx / symbolsPerRow)
+        const col = sIdx % symbolsPerRow
+        const countInThisRow = Math.min(symbolsPerRow, sTotal - row * symbolsPerRow)
+        initX = parentPos.x + (col - (countInThisRow - 1) / 2) * 30
+        initY = parentPos.y + 42 + row * 28
       }
 
       return {
@@ -807,6 +928,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         y: initY,
         vx: 0,
         vy: 0,
+        tier,
+        tierKey: tierInfo.key,
+        tierLabel: tierInfo.label,
+        tierTargetX: tierTargets.get(n.id)?.x,
+        tierTargetY: tierTargets.get(n.id)?.y,
         isArchFile: isHub,
         isHub,
         isSatellite: isSat,
@@ -814,13 +940,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         parentHubLabel: (n as any).parentHubLabel || n.properties?.parentHubLabel,
         satelliteIndex: (n as any).satelliteIndex,
         satelliteTotal: (n as any).satelliteTotal,
-        ringIndex: (n as any).ringIndex ?? n.properties?.ringIndex,
-        orbitRadius: (n as any).orbitRadius ?? n.properties?.orbitRadius ?? 76,
-        orbitAngle: (n as any).orbitAngle ?? n.properties?.orbitAngle ?? 0,
+        subGridCol: (n as any).subGridCol,
+        subGridRow: (n as any).subGridRow,
         moduleGroup: n.properties?.moduleGroup,
         symbolCount: n.properties?.symbolCount,
-        community_id: cId,
-        community_name: (n as any).community_name || n.properties?.community_name || `Cluster ${cId}`,
+        community_id: (n as any).community_id ?? n.properties?.community_id ?? 0,
+        community_name: (n as any).community_name || n.properties?.community_name || tierInfo.label,
         is_god_node: Boolean((n as any).is_god_node ?? n.properties?.is_god_node ?? false),
         degree: (n as any).degree ?? n.properties?.degree ?? 0,
         degree_centrality: (n as any).degree_centrality ?? n.properties?.degree_centrality ?? 0,
@@ -836,38 +961,130 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       isIntraSatellite: Boolean((e as any).isIntraSatellite),
     }))
 
-    // 0. Community Convex Bubble Hulls (Background layer)
-    const hullGroup = g.append("g").attr("class", "community-hulls")
+    // ==========================================================
+    // Visual Tier Indicators & Row Dividers (Background layer)
+    // ==========================================================
+    const tierGroup = g.append("g").attr("class", "tier-indicators")
 
-    // 0.5. Orbital Constellation Guide Rings around expanded hubs
-    const orbitGuideGroup = g.append("g").attr("class", "orbit-guides")
-    interface OrbitGuide {
-      hubId: string
-      radius: number
+    const codeSimNodes = simNodes.filter(n => n.tier >= 0)
+    let minX = width / 2 - 400
+    let maxX = width / 2 + 400
+    if (codeSimNodes.length > 0) {
+      const xs = codeSimNodes.map(n => n.x)
+      minX = Math.min(...xs) - 220
+      maxX = Math.max(...xs) + 220
     }
-    const orbitGuides: OrbitGuide[] = []
-    const expandedHubs = simNodes.filter(n => n.isHub && expandedHubIds.has(n.id))
-    for (const hub of expandedHubs) {
-      const satNodes = simNodes.filter(n => n.isSatellite && n.parentHubId === hub.id)
-      const radii = [...new Set(satNodes.map(s => s.orbitRadius || 76))]
-      for (const r of radii) {
-        orbitGuides.push({ hubId: hub.id, radius: r })
-      }
+    const codeMaxX = utilityNodes.length > 0 ? Math.min(maxX, utilityColumnX - 60) : maxX
+
+    // Render 5 Architectural Tiers (0 to 4)
+    ARCH_TIERS.forEach(tDef => {
+      const y = tierYMap[tDef.tier]
+      const tHeight = tierHeights[tDef.tier] + 52
+
+      // Subtle horizontal divider line
+      tierGroup.append("line")
+        .attr("x1", minX)
+        .attr("y1", y - 48)
+        .attr("x2", codeMaxX)
+        .attr("y2", y - 48)
+        .attr("stroke", "rgba(51, 65, 85, 0.28)")
+        .attr("stroke-dasharray", "6, 6")
+        .attr("pointer-events", "none")
+
+      // Subtle background tier band accommodating expanded child symbols
+      tierGroup.append("rect")
+        .attr("x", minX)
+        .attr("y", y - 48)
+        .attr("width", codeMaxX - minX)
+        .attr("height", tHeight)
+        .attr("rx", 10)
+        .attr("fill", tDef.fillColor)
+        .attr("pointer-events", "none")
+
+      // Left-pinned Tier Pill Badge
+      tierGroup.append("rect")
+        .attr("x", minX + 16)
+        .attr("y", y - 36)
+        .attr("width", 72)
+        .attr("height", 18)
+        .attr("rx", 9)
+        .attr("fill", tDef.fillColor)
+        .attr("stroke", tDef.borderColor)
+        .attr("stroke-width", 1)
+        .attr("pointer-events", "none")
+
+      tierGroup.append("text")
+        .attr("x", minX + 52)
+        .attr("y", y - 23)
+        .attr("text-anchor", "middle")
+        .attr("fill", tDef.badgeColor)
+        .attr("font-size", 9)
+        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-weight", "bold")
+        .attr("pointer-events", "none")
+        .text(`TIER ${tDef.tier}`)
+
+      // Left-pinned Tier Header Title
+      tierGroup.append("text")
+        .attr("x", minX + 98)
+        .attr("y", y - 23)
+        .attr("fill", "#f1f5f9")
+        .attr("font-size", 11.5)
+        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-weight", "600")
+        .attr("pointer-events", "none")
+        .text(tDef.label)
+
+      // Left-pinned Tier Subtitle
+      tierGroup.append("text")
+        .attr("x", minX + 98)
+        .attr("y", y - 9)
+        .attr("fill", "#64748b")
+        .attr("font-size", 8.5)
+        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("pointer-events", "none")
+        .text(tDef.sublabel)
+    })
+
+    // Side Utility Tier Divider & Docking Panel (if utility files exist)
+    if (utilityNodes.length > 0) {
+      const maxY = tierYMap[4] + tierHeights[4] + 40
+      tierGroup.append("line")
+        .attr("x1", utilityColumnX - 45)
+        .attr("y1", TOP_TIER_Y - 48)
+        .attr("x2", utilityColumnX - 45)
+        .attr("y2", maxY)
+        .attr("stroke", "rgba(148, 163, 184, 0.25)")
+        .attr("stroke-dasharray", "4, 4")
+        .attr("pointer-events", "none")
+
+      tierGroup.append("rect")
+        .attr("x", utilityColumnX - 35)
+        .attr("y", TOP_TIER_Y - 48)
+        .attr("width", 210)
+        .attr("height", Math.max(160, utilityNodes.length * 80 + 40))
+        .attr("rx", 10)
+        .attr("fill", UTILITY_TIER_INFO.fillColor)
+        .attr("stroke", UTILITY_TIER_INFO.borderColor)
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "4, 4")
+        .attr("pointer-events", "none")
+
+      tierGroup.append("text")
+        .attr("x", utilityColumnX + 70)
+        .attr("y", TOP_TIER_Y - 24)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#94a3b8")
+        .attr("font-size", 10)
+        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-weight", "bold")
+        .attr("pointer-events", "none")
+        .text("✦ UTILITY & DOCS")
     }
 
-    const orbitCircles = orbitGuideGroup
-      .selectAll<SVGCircleElement, OrbitGuide>("circle.orbit-ring")
-      .data(orbitGuides, d => `${d.hubId}-r${d.radius}`)
-      .join("circle")
-      .attr("class", "orbit-ring")
-      .attr("fill", "none")
-      .attr("stroke", "rgba(56, 189, 248, 0.16)")
-      .attr("stroke-width", 1.2)
-      .attr("stroke-dasharray", "3, 4")
-      .attr("r", d => d.radius)
-      .attr("pointer-events", "none")
-
-    // 1. Links Rendering (Curved Quadratic Bezier paths for highways, clean straight dashed spokes)
+    // ==========================================================
+    // Downward Flowing Bézier Edge Routing
+    // ==========================================================
     const linkGroup = g.append("g").attr("class", "links")
     const link = linkGroup
       .selectAll<SVGPathElement, SimLink>("path.edge-path")
@@ -896,7 +1113,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
       .attr("stroke-opacity", (d) => d.isSpoke ? 0.75 : 0.6)
 
-    // 2. Link Labels (coupling weight / relation) - hidden by default to eliminate visual clutter
+    // Link Labels (coupling weight / relation)
     const linkLabelGroup = g.append("g").attr("class", "link-labels")
     const linkLabel = linkLabelGroup
       .selectAll<SVGTextElement, SimLink>("text")
@@ -911,7 +1128,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("pointer-events", "none")
       .attr("opacity", 0)
 
-    // 3. Node Groups
+    // ==========================================================
+    // Node Groups (File Cards & Sub-Grid Satellites)
+    // ==========================================================
     const nodeGroup = g.append("g")
       .attr("class", "nodes")
       .selectAll<SVGGElement, SimNode>("g")
@@ -941,8 +1160,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         }
       })
 
-    // ARCHITECTURAL CARD NODE FOR HUBS
-    const CARD_W = 156
+    // ARCHITECTURAL FILE CARD
+    const CARD_W = 160
     const CARD_H = 48
 
     const hubGroup = nodeGroup.filter((d) => Boolean(d.isHub))
@@ -956,11 +1175,39 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("rx", 8)
       .attr("ry", 8)
       .attr("fill", PALETTE.fileCard.fill)
-      .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : PALETTE.fileCard.stroke)
+      .attr("stroke", (d) => {
+        if (d.properties?.is_god_node || (d as any).is_god_node) return "#38bdf8"
+        const tInfo = getTierInfo(d.tier)
+        return tInfo.borderColor
+      })
       .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2 : 1.5)
       .style("filter", (d) => (d.properties?.is_god_node || (d as any).is_god_node)
         ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
         : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
+
+    // Tier indicator tag on card
+    const tierPill = hubGroup.append("g")
+      .attr("class", "arch-tier-pill")
+      .attr("transform", `translate(${-CARD_W / 2 + 8}, ${-CARD_H / 2 + 6})`)
+
+    tierPill.append("rect")
+      .attr("width", 24)
+      .attr("height", 13)
+      .attr("rx", 6.5)
+      .attr("fill", (d) => getTierInfo(d.tier).fillColor)
+      .attr("stroke", (d) => getTierInfo(d.tier).borderColor)
+      .attr("stroke-width", 0.8)
+
+    tierPill.append("text")
+      .text((d) => d.tier === -1 ? "UTIL" : `T${d.tier}`)
+      .attr("x", 12)
+      .attr("y", 9.5)
+      .attr("text-anchor", "middle")
+      .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
+      .attr("font-size", 7.5)
+      .attr("font-weight", "bold")
+      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("pointer-events", "none")
 
     // Module Directory Subtitle
     hubGroup.append("text")
@@ -968,10 +1215,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .text((d) => {
         if (!d.moduleGroup || d.moduleGroup === "root") return ""
         const grp = d.moduleGroup
-        return grp.length > 16 ? "…" + grp.slice(-15) + "/" : `${grp}/`
+        return grp.length > 14 ? "…" + grp.slice(-13) + "/" : `${grp}/`
       })
-      .attr("x", -CARD_W / 2 + 10)
-      .attr("y", -CARD_H / 2 + 15)
+      .attr("x", -CARD_W / 2 + 36)
+      .attr("y", -CARD_H / 2 + 16)
       .attr("fill", PALETTE.fileCard.subtext)
       .attr("font-size", 8.5)
       .attr("font-family", "JetBrains Mono, monospace")
@@ -982,20 +1229,20 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("class", "arch-filename")
       .text((d) => {
         const name = d.label
-        return name.length > 16 ? name.slice(0, 14) + "…" : name
+        return name.length > 15 ? name.slice(0, 13) + "…" : name
       })
       .attr("x", -CARD_W / 2 + 10)
-      .attr("y", -CARD_H / 2 + 33)
+      .attr("y", -CARD_H / 2 + 34)
       .attr("fill", PALETTE.fileCard.text)
       .attr("font-size", 10.5)
       .attr("font-weight", 600)
       .attr("font-family", "JetBrains Mono, monospace")
       .attr("pointer-events", "none")
 
-    // Interactive Satellites Expand/Collapse Badge on Hub Card
+    // Interactive Child Symbols Expand/Collapse Badge
     const badge = hubGroup.append("g")
       .attr("class", "hub-satellites-badge")
-      .attr("transform", `translate(${CARD_W / 2 - 42}, ${-CARD_H / 2 + 13})`)
+      .attr("transform", `translate(${CARD_W / 2 - 42}, ${-CARD_H / 2 + 14})`)
       .attr("cursor", "pointer")
       .on("click", (event, d) => {
         event.stopPropagation()
@@ -1025,7 +1272,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("font-family", "JetBrains Mono, monospace")
       .attr("pointer-events", "none")
 
-    // SATELLITE ORBITAL NODES (Small circular nodes)
+    // SATELLITE SUB-GRID SYMBOLS
     const satGroup = nodeGroup.filter((d) => Boolean(d.isSatellite))
 
     satGroup.filter((d) => Boolean(d.properties?.is_god_node || (d as any).is_god_node))
@@ -1070,16 +1317,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("font-family", "JetBrains Mono, monospace")
       .attr("pointer-events", "none")
 
-    // Drag behavior with simulation wake-up
+    // Drag behavior with simulation wake-up and tier Y constraint
     const drag = d3.drag<SVGGElement, SimNode>()
       .on("start", (event, d) => {
         if (!event.active) sim.alphaTarget(0.3).restart()
         d.fx = d.x
-        d.fy = d.y
+        d.fy = d.tier === -1 ? (d.tierTargetY ?? d.y) : (tierYMap[d.tier] ?? d.y)
       })
       .on("drag", (event, d) => {
         d.fx = event.x
-        d.fy = event.y
+        d.fy = d.tier === -1 ? (d.tierTargetY ?? d.y) : (tierYMap[d.tier] ?? d.y)
       })
       .on("end", (event, d) => {
         if (!event.active) sim.alphaTarget(0)
@@ -1088,99 +1335,83 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
     nodeGroup.call(drag)
 
-    // Multi-Focal Island Force Simulation Configuration
+    // ==========================================================
+    // D3 Physics Simulation Configuration (Strict Vertical Hierarchy)
+    // ==========================================================
     const simNodeMap = new Map<string, SimNode>(simNodes.map(n => [n.id, n]))
 
     const sim = d3.forceSimulation(simNodes)
       .force("link", d3.forceLink<SimNode, SimLink>(simLinks)
         .id((d) => d.id)
-        .distance((d) => {
-          if (d.isSpoke) return (d.target as SimNode).orbitRadius || 76
-          if (d.isHighway) {
-            const sCId = (d.source as SimNode).community_id ?? 0
-            const tCId = (d.target as SimNode).community_id ?? 0
-            return sCId !== tCId ? 420 : 180
-          }
-          return 140
-        })
-        .strength((d) => {
-          if (d.isSpoke) return 0.95
-          if (d.isHighway) {
-            const sCId = (d.source as SimNode).community_id ?? 0
-            const tCId = (d.target as SimNode).community_id ?? 0
-            return sCId !== tCId ? 0.03 : 0.22
-          }
-          return 0.25
-        }))
+        .distance((d) => d.isSpoke ? 35 : 190)
+        .strength((d) => d.isSpoke ? 0.95 : 0.08))
       .force("charge", d3.forceManyBody<SimNode>()
-        .strength((d) => d.isHub ? -600 : -80)
-        .distanceMax(650))
-      .force("islandX", d3.forceX<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.x ?? width / 2).strength(0.42))
-      .force("islandY", d3.forceY<SimNode>((d) => islandCenters.get(d.community_id ?? 0)?.y ?? height / 2).strength(0.42))
+        .strength((d) => d.isHub ? -180 : -25)
+        .distanceMax(380))
+      .force("forceY", d3.forceY<SimNode>((d) => d.tier === -1 ? (d.tierTargetY ?? TOP_TIER_Y) : (tierYMap[d.tier] ?? TOP_TIER_Y)).strength(0.85))
+      .force("forceX", d3.forceX<SimNode>((d) => d.tierTargetX ?? width / 2).strength(0.4))
       .force("collision", d3.forceCollide<SimNode>().radius((d) =>
-        d.isHub ? 100 : getNodeRadius(d.type, d) + 14
-      ))
+        d.isHub ? 100 : getNodeRadius(d.type, d) + 12
+      ).iterations(3))
       .alphaDecay(0.024)
 
     const enforceSpatialConstraints = () => {
-      // 1. Island boundary confinement: keep each community's nodes inside its island continent
+      // 1. Constrain file cards to their assigned tier Y level
       for (const d of simNodes) {
-        const cId = d.community_id ?? 0
-        const center = islandCenters.get(cId)
-        if (center && typeof d.x === "number" && typeof d.y === "number") {
-          const dx = d.x - center.x
-          const dy = d.y - center.y
-          const dist = Math.hypot(dx, dy) || 1
-          const maxAllowed = center.islandRadius - 15
-          if (dist > maxAllowed) {
-            const excess = dist - maxAllowed
-            d.x -= (dx / dist) * excess * 0.45
-            d.y -= (dy / dist) * excess * 0.45
+        if (d.isHub && d.fy == null) {
+          const targetY = d.tier === -1 ? (d.tierTargetY ?? TOP_TIER_Y) : (tierYMap[d.tier] ?? TOP_TIER_Y)
+          if (typeof d.y === "number") {
+            d.y += (targetY - d.y) * 0.45
           }
         }
       }
 
-      // 2. Enforce satellite orbital constellation around parent hub
+      // 2. Constrain child symbols to compact sub-grid directly beneath their parent file card
       for (const d of simNodes) {
         if (d.isSatellite && d.parentHubId && d.fx == null) {
           const hub = simNodeMap.get(d.parentHubId)
           if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
-            const rad = d.orbitRadius || 76
-            const angle = d.orbitAngle ?? 0
-            const targetX = hub.x + rad * Math.cos(angle)
-            const targetY = hub.y + rad * Math.sin(angle)
-            d.x += (targetX - d.x) * 0.35
-            d.y += (targetY - d.y) * 0.35
+            const sIdx = d.satelliteIndex ?? 0
+            const sTotal = d.satelliteTotal ?? 1
+            const symbolsPerRow = 6
+            const row = Math.floor(sIdx / symbolsPerRow)
+            const col = sIdx % symbolsPerRow
+            const countInThisRow = Math.min(symbolsPerRow, sTotal - row * symbolsPerRow)
+            const subX = hub.x + (col - (countInThisRow - 1) / 2) * 30
+            const subY = hub.y + 44 + row * 28
+
+            d.x += (subX - d.x) * 0.5
+            d.y += (subY - d.y) * 0.5
           }
         }
       }
     }
 
-    // Zero-Wobble Off-screen Pre-stabilization (settle 140 ticks before canvas paint)
+    // Zero-Wobble Off-screen Pre-stabilization (settle 130 ticks before canvas paint)
     sim.stop()
-    for (let i = 0; i < 140; ++i) {
+    for (let i = 0; i < 130; ++i) {
       sim.tick()
       enforceSpatialConstraints()
     }
 
-    // Auto-fit to viewport so all community islands are perfectly visible and centered
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    // Auto-fit to viewport
+    let boundMinX = Infinity, boundMaxX = -Infinity, boundMinY = Infinity, boundMaxY = -Infinity
     for (const d of simNodes) {
       if (typeof d.x === "number" && typeof d.y === "number") {
-        minX = Math.min(minX, d.x - 100)
-        maxX = Math.max(maxX, d.x + 100)
-        minY = Math.min(minY, d.y - 80)
-        maxY = Math.max(maxY, d.y + 80)
+        boundMinX = Math.min(boundMinX, d.x - 120)
+        boundMaxX = Math.max(boundMaxX, d.x + 120)
+        boundMinY = Math.min(boundMinY, d.y - 80)
+        boundMaxY = Math.max(boundMaxY, d.y + 80)
       }
     }
 
-    if (isFinite(minX) && isFinite(maxX) && isFinite(minY) && isFinite(maxY)) {
-      const gW = Math.max(120, maxX - minX)
-      const gH = Math.max(120, maxY - minY)
+    if (isFinite(boundMinX) && isFinite(boundMaxX) && isFinite(boundMinY) && isFinite(boundMaxY)) {
+      const gW = Math.max(160, boundMaxX - boundMinX)
+      const gH = Math.max(160, boundMaxY - boundMinY)
       const pad = 60
-      const scale = Math.min(1.15, Math.max(0.18, Math.min((width - pad * 2) / gW, (height - pad * 2) / gH)))
-      const cx = (minX + maxX) / 2
-      const cy = (minY + maxY) / 2
+      const scale = Math.min(1.15, Math.max(0.2, Math.min((width - pad * 2) / gW, (height - pad * 2) / gH)))
+      const cx = (boundMinX + boundMaxX) / 2
+      const cy = (boundMinY + boundMaxY) / 2
       const tx = width / 2 - scale * cx
       const ty = height / 2 - scale * cy
 
@@ -1192,145 +1423,69 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const updatePositions = () => {
       enforceSpatialConstraints()
 
-      // 0. Update Orbital Guide Rings
-      orbitCircles.each(function(d) {
-        const hub = simNodeMap.get(d.hubId)
-        if (hub && typeof hub.x === "number" && typeof hub.y === "number") {
-          d3.select(this)
-            .attr("cx", hub.x)
-            .attr("cy", hub.y)
-        }
-      })
-
-      // 1. Update Community Hulls (Islands)
-      const hulls = computeCommunityHulls(simNodes)
-      const hullPaths = hullGroup.selectAll<SVGPathElement, CommunityHullData>("path.community-hull")
-        .data(hulls, (d) => d.communityId)
-
-      hullPaths.enter()
-        .append("path")
-        .attr("class", "community-hull")
-        .attr("fill", (d) => COMMUNITY_PALETTE[Math.abs(d.communityId || 0) % COMMUNITY_PALETTE.length].fill)
-        .attr("stroke", (d) => COMMUNITY_PALETTE[Math.abs(d.communityId || 0) % COMMUNITY_PALETTE.length].stroke)
-        .attr("stroke-width", 1.5)
-        .attr("stroke-dasharray", "4, 4")
-        .attr("pointer-events", "none")
-        .merge(hullPaths)
-        .attr("d", (d) => d.pathD)
-
-      hullPaths.exit().remove()
-
-      const hullLabels = hullGroup.selectAll<SVGTextElement, CommunityHullData>("text.community-label")
-        .data(hulls, (d) => d.communityId)
-
-      hullLabels.enter()
-        .append("text")
-        .attr("class", "community-label")
-        .attr("fill", (d) => COMMUNITY_PALETTE[Math.abs(d.communityId || 0) % COMMUNITY_PALETTE.length].badge)
-        .attr("font-size", 9.5)
-        .attr("font-family", "JetBrains Mono, monospace")
-        .attr("font-weight", "600")
-        .attr("text-anchor", "middle")
-        .attr("opacity", 0.65)
-        .attr("pointer-events", "none")
-        .merge(hullLabels)
-        .attr("x", (d) => d.centroid[0])
-        .attr("y", (d) => d.centroid[1] - 50)
-        .text((d) => `✦ ${d.communityName}`)
-
-      hullLabels.exit().remove()
-
-      // 2. Update Links (Spokes and Curved Highways)
-      link.attr("d", (d, idx) => {
+      // Update Downward Flowing Bézier Paths
+      link.attr("d", (d) => {
         const s = d.source as SimNode
         const t = d.target as SimNode
         if (!s || !t || typeof s.x !== "number" || typeof t.x !== "number") return ""
 
         if (d.isSpoke) {
-          // Delicate spoke line directly from Hub to Satellite
-          return `M ${s.x} ${s.y} L ${t.x} ${t.y}`
+          // Direct branch connector from card bottom to child symbol
+          return `M ${s.x} ${s.y + 24} L ${t.x} ${t.y}`
         }
 
-        const dx = t.x - s.x
-        const dy = t.y - s.y
-        const dist = Math.hypot(dx, dy) || 1
-        const baseCurv = d.isHighway ? 28 : 16
-        const pairFactor = (idx % 2 === 1) ? 1.3 : 1.0
-        const curvature = baseCurv * pairFactor
+        if (d.isIntraSatellite) {
+          return `M ${s.x} ${s.y} Q ${(s.x + t.x) / 2} ${(s.y + t.y) / 2 - 14} ${t.x} ${t.y}`
+        }
 
-        const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
-        const cy = (s.y + t.y) / 2 + (dx / dist) * curvature
+        // Inter-file caller -> callee dependency edge
+        const sX = s.x
+        const sY = s.y + 24 // Exit from bottom of caller card
+        const tX = t.x
+        const tY = t.y - 24 // Enter at top of callee card
+        const deltaY = tY - sY
 
-        let startX = s.x
-        let startY = s.y
-        let endX = t.x
-        let endY = t.y
-
-        if (s.isHub) {
-          const hw = 156 / 2
-          const hh = 48 / 2
-          const ux = cx - s.x
-          const uy = cy - s.y
-          const scaleS = Math.min(Math.abs(ux) > 0 ? hw / Math.abs(ux) : 999, Math.abs(uy) > 0 ? hh / Math.abs(uy) : 999)
-          startX = s.x + ux * Math.min(scaleS, 1.0)
-          startY = s.y + uy * Math.min(scaleS, 1.0)
+        if (deltaY > 20) {
+          // Smooth downward vertical cubic Bézier waterfall
+          const handle = Math.min(80, Math.max(30, deltaY * 0.5))
+          const cp1x = sX
+          const cp1y = sY + handle
+          const cp2x = tX
+          const cp2y = tY - handle
+          return `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`
+        } else if (Math.abs(deltaY) <= 20) {
+          // Same-tier or lateral edge: smooth downward arc
+          const midX = (sX + tX) / 2
+          const drop = Math.min(50, Math.abs(tX - sX) * 0.25 + 24)
+          return `M ${sX} ${sY} Q ${midX} ${sY + drop} ${tX} ${tY}`
         } else {
-          const rS = getNodeRadius(s.type, s)
-          const ux = cx - s.x
-          const uy = cy - s.y
-          const ulen = Math.hypot(ux, uy) || 1
-          startX = s.x + (ux / ulen) * rS
-          startY = s.y + (uy / ulen) * rS
+          // Upward reverse loop: route cleanly around the side
+          const offsetX = tX >= sX ? 65 : -65
+          const cp1x = sX + offsetX
+          const cp1y = sY + 30
+          const cp2x = tX + offsetX
+          const cp2y = tY - 30
+          return `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`
         }
-
-        if (t.isHub) {
-          const hw = 156 / 2
-          const hh = 48 / 2
-          const vx = t.x - cx
-          const vy = t.y - cy
-          const scaleT = Math.min(Math.abs(vx) > 0 ? (hw + 6) / Math.abs(vx) : 999, Math.abs(vy) > 0 ? (hh + 6) / Math.abs(vy) : 999)
-          endX = t.x - vx * Math.min(scaleT, 1.0)
-          endY = t.y - vy * Math.min(scaleT, 1.0)
-        } else {
-          const rT = getNodeRadius(t.type, t) + 4
-          const vx = t.x - cx
-          const vy = t.y - cy
-          const vlen = Math.hypot(vx, vy) || 1
-          endX = t.x - (vx / vlen) * rT
-          endY = t.y - (vy / vlen) * rT
-        }
-
-        return `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`
       })
 
-      // 3. Update Link Labels
+      // Update Link Labels
       linkLabel
         .attr("x", (d) => {
           const s = d.source as SimNode
           const t = d.target as SimNode
-          const dx = t.x - s.x
-          const dy = t.y - s.y
-          const dist = Math.hypot(dx, dy) || 1
-          const curvature = d.isHighway ? 24 : 16
-          const cx = (s.x + t.x) / 2 - (dy / dist) * curvature
-          return 0.25 * (s.x + t.x) + 0.5 * cx
+          return (s.x + t.x) / 2
         })
         .attr("y", (d) => {
           const s = d.source as SimNode
           const t = d.target as SimNode
-          const dx = t.x - s.x
-          const dy = t.y - s.y
-          const dist = Math.hypot(dx, dy) || 1
-          const curvature = d.isHighway ? 24 : 16
-          const cy = (s.y + t.y) / 2 + (dx / dist) * curvature
-          return 0.25 * (s.y + t.y) + 0.5 * cy
+          return (s.y + t.y) / 2
         })
 
-      // 4. Update Node Positions
+      // Update Node Positions
       nodeGroup.attr("transform", (d) => `translate(${d.x},${d.y})`)
     }
 
-    // Initial render at settled coordinates
     updatePositions()
 
     sim.on("tick", updatePositions)
@@ -1345,6 +1500,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (!svgRef.current || displayNodes.length === 0) return
     const svg = d3.select(svgRef.current)
     const q = searchQuery.toLowerCase()
+    const activeNodeLookup = new Map<string, GraphNode>(displayNodes.map(n => [n.id, n]))
 
     const upstreamIds = new Set<string>()
     const downstreamIds = new Set<string>()
@@ -1433,7 +1589,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             .style("filter", "drop-shadow(0 0 12px rgba(251, 191, 36, 0.45))")
         } else {
           card
-            .attr("stroke", (d.properties?.is_god_node || d.is_god_node) ? "#38bdf8" : PALETTE.fileCard.stroke)
+            .attr("stroke", (d.properties?.is_god_node || d.is_god_node) ? "#38bdf8" : getTierInfo(d.tier).borderColor)
             .attr("stroke-width", (d.properties?.is_god_node || d.is_god_node) ? 2 : 1.5)
             .style("filter", (d.properties?.is_god_node || d.is_god_node)
               ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
@@ -1476,7 +1632,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const isOutboundFromFocus = sId === selectedNodeId
       const isInboundToFocus = tId === selectedNodeId
 
-      const matchesSearch = !q || (d.source.label?.toLowerCase().includes(q) || d.target.label?.toLowerCase().includes(q))
+      const sLabel = typeof d.source === "object" ? (d.source.label || d.source.id || "") : (activeNodeLookup.get(d.source)?.label || String(d.source || ""))
+      const tLabel = typeof d.target === "object" ? (d.target.label || d.target.id || "") : (activeNodeLookup.get(d.target)?.label || String(d.target || ""))
+      const matchesSearch = !q || sLabel.toLowerCase().includes(q) || tLabel.toLowerCase().includes(q)
       const matchesType = !hiddenTypes.has(sType) && !hiddenTypes.has(tType)
 
       let linkOpacity = d.isSpoke ? 0.75 : 0.6
@@ -1519,7 +1677,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (hasFocus) {
         labelOpacity = isConnected ? 1.0 : 0.0
       } else if (q) {
-        const matchesSearch = d.source.label?.toLowerCase().includes(q) || d.target.label?.toLowerCase().includes(q)
+        const sLabel = typeof d.source === "object" ? (d.source.label || d.source.id || "") : (activeNodeLookup.get(d.source)?.label || String(d.source || ""))
+        const tLabel = typeof d.target === "object" ? (d.target.label || d.target.id || "") : (activeNodeLookup.get(d.target)?.label || String(d.target || ""))
+        const matchesSearch = sLabel.toLowerCase().includes(q) || tLabel.toLowerCase().includes(q)
         labelOpacity = matchesSearch ? 0.8 : 0.0
       }
 
@@ -1613,7 +1773,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         return t === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
       })
     }
-    // For satellite symbol: retrieve inbound callers from rawEdges
     return rawEdges.filter(e => e.target === detailNode.id)
   }, [detailNode, displayEdges, rawEdges])
 
@@ -1626,7 +1785,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         return s === detailNode.id && !(e as any).isSpoke && !e.properties?.isSpoke
       })
     }
-    // For satellite symbol: retrieve outbound calls from rawEdges
     return rawEdges.filter(e => e.source === detailNode.id)
   }, [detailNode, displayEdges, rawEdges])
 
@@ -1689,7 +1847,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         )}
       </div>
 
-      {/* TOP HEADER CONTROLS (View Mode Toggle & Metrics) */}
+      {/* TOP HEADER CONTROLS (View Mode Toggle & Layered Architecture Metrics) */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-30">
         {/* Left: View Mode Toggle */}
         <div className="flex items-center gap-2 pointer-events-auto bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl shadow-xl">
@@ -1704,8 +1862,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
             }`}
           >
-            <span className="material-symbols-outlined text-base">domain</span>
-            <span>File Architecture</span>
+            <span className="material-symbols-outlined text-base">layers</span>
+            <span>Layered Architecture Flow</span>
           </button>
           <button
             onClick={() => {
@@ -1719,8 +1877,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
             }`}
           >
-            <span className="material-symbols-outlined text-base">hub</span>
-            <span>Satellite Constellations</span>
+            <span className="material-symbols-outlined text-base">view_module</span>
+            <span>Sub-Grid Symbol View</span>
           </button>
         </div>
 
@@ -1729,14 +1887,14 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
             <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]"></span>
             <span className="font-mono text-xs text-slate-300">
-              {displayNodes.filter(n => (n as any).isHub).length} Hubs
-              {displayNodes.filter(n => (n as any).isSatellite).length > 0 && ` • ${displayNodes.filter(n => (n as any).isSatellite).length} Satellites`}
+              5 Architectural Tiers • {displayNodes.filter(n => (n as any).isHub).length} Files
+              {displayNodes.filter(n => (n as any).isSatellite).length > 0 && ` • ${displayNodes.filter(n => (n as any).isSatellite).length} Symbols`}
             </span>
           </div>
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
             <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]"></span>
             <span className="font-mono text-xs text-slate-300">
-              {displayEdges.filter(e => (e as any).isHighway).length} Highways
+              {displayEdges.filter(e => (e as any).isHighway).length} Flow Edges
             </span>
           </div>
         </div>
@@ -1763,7 +1921,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Constellation Expand/Collapse All Toggle */}
+          {/* Sub-grid Expand/Collapse All Toggle */}
           <button
             className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
               expandedHubIds.size > 0
@@ -1771,12 +1929,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                 : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
             }`}
             onClick={handleToggleExpandAll}
-            title={expandedHubIds.size > 0 ? "Collapse all satellite constellations" : "Expand all satellite constellations"}
+            title={expandedHubIds.size > 0 ? "Collapse all symbol sub-grids" : "Expand all symbol sub-grids"}
           >
             <span className="material-symbols-outlined text-sm">
               {expandedHubIds.size > 0 ? "unfold_less" : "unfold_more"}
             </span>
-            {expandedHubIds.size > 0 ? "Collapse Satellites" : "Expand Satellites"}
+            {expandedHubIds.size > 0 ? "Collapse Symbols" : "Expand Symbols"}
           </button>
 
           {/* Filter Dropdown */}
@@ -1818,8 +1976,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                 : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
             }`}
           >
-            <span className="material-symbols-outlined text-sm">{viewMode === "cognee" ? "hub" : "schema"}</span>
-            {viewMode === "cognee" ? "D3 Canvas" : "Cognee Embed"}
+            <span className="material-symbols-outlined text-sm">{viewMode === "cognee" ? "layers" : "schema"}</span>
+            {viewMode === "cognee" ? "DAG Canvas" : "Cognee Embed"}
           </button>
 
           <button
@@ -1866,7 +2024,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-800">
           <h3 className="font-mono text-sm font-semibold text-primary flex items-center gap-2">
             <span className="material-symbols-outlined text-base">account_tree</span>
-            {(detailNode as any)?.isHub ? "Architectural Hub Inspector" : "Symbol Inspector"}
+            {(detailNode as any)?.isHub ? "Architectural File Inspector" : "Symbol Inspector"}
           </h3>
           <button className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-md transition-colors" onClick={handleCloseInspector}>
             <span className="material-symbols-outlined text-base">close</span>
@@ -1875,13 +2033,27 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
         {detailNode && (
           <div className="space-y-6">
-            {/* Title & Badge */}
+            {/* Title & Tier Badge */}
             <div>
               <div className="text-[10px] font-mono uppercase text-slate-500 tracking-wider mb-1">
-                {(detailNode as any).isHub ? "ARCHITECTURAL HUB (FILE)" : (detailNode as any).isSatellite ? "ORBITAL SATELLITE SYMBOL" : "GRAPH NODE"}
+                {(detailNode as any).isHub ? "ARCHITECTURAL COMPONENT" : (detailNode as any).isSatellite ? "SUB-GRID SYMBOL" : "GRAPH NODE"}
               </div>
               <h4 className="font-mono text-base font-bold text-white break-words">{detailNode.label}</h4>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {/* Architectural Tier Badge */}
+                {(detailNode as any).tier !== undefined && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold border"
+                    style={{
+                      borderColor: getTierInfo((detailNode as any).tier).borderColor,
+                      color: getTierInfo((detailNode as any).tier).badgeColor,
+                      backgroundColor: getTierInfo((detailNode as any).tier).fillColor,
+                    }}
+                  >
+                    <span>{getTierInfo((detailNode as any).tier).shortLabel}</span>
+                  </span>
+                )}
+
                 <span
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium border"
                   style={{
@@ -1898,12 +2070,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-sky-400 bg-sky-950/70 text-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.35)]">
                     <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                     GOD NODE
-                  </span>
-                )}
-
-                {(detailNode.properties?.community_name || (detailNode as any).community_name) && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono text-indigo-300 bg-indigo-950/70 border border-indigo-800/60">
-                    island: {detailNode.properties?.community_name || (detailNode as any).community_name}
                   </span>
                 )}
 
@@ -1925,7 +2091,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
             {(detailNode as any).isSatellite && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
-                  PARENT ARCHITECTURAL HUB
+                  PARENT ARCHITECTURAL FILE
                 </label>
                 <button
                   onClick={() => {
@@ -1943,17 +2109,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                       {(detailNode as any).parentHubLabel || detailNode.properties?.parentHubLabel || getFileName((detailNode as any).parentHubId || "")}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 font-mono">Focus Hub &rarr;</span>
+                  <span className="text-[10px] text-slate-500 font-mono">Focus File &rarr;</span>
                 </button>
               </div>
             )}
 
-            {/* When Hub is selected: Satellite Constellation List with Toggle */}
+            {/* When Hub is selected: Child Symbols Sub-Grid List with Toggle */}
             {(detailNode as any).isHub && detailNode.properties?.symbols && detailNode.properties.symbols.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">
-                    SATELLITE SYMBOLS ({detailNode.properties.symbols.length})
+                    CHILD SYMBOLS ({detailNode.properties.symbols.length})
                   </label>
                   <button
                     onClick={() => toggleHubExpansion(detailNode.id)}
@@ -1962,7 +2128,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                     <span className="material-symbols-outlined text-[13px]">
                       {expandedHubIds.has(detailNode.id) ? "unfold_less" : "unfold_more"}
                     </span>
-                    {expandedHubIds.has(detailNode.id) ? "Collapse Orbit" : "Expand Orbit"}
+                    {expandedHubIds.has(detailNode.id) ? "Collapse Grid" : "Expand Grid"}
                   </button>
                 </div>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -2000,11 +2166,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               </div>
             )}
 
-            {/* Architecture / Hub Mode: Outbound Dependencies */}
+            {/* Architecture Mode: Outbound Downstream Dependencies */}
             {activeOutbound.length > 0 && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
-                  OUTBOUND DEPENDENCIES (CALLS & IMPORTS) — {activeOutbound.length}
+                  DOWNSTREAM DEPENDENCIES (CALLS & IMPORTS) — {activeOutbound.length}
                 </label>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeOutbound.map((edge, idx) => {
@@ -2031,11 +2197,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               </div>
             )}
 
-            {/* Inbound Consumers */}
+            {/* Inbound Upstream Consumers */}
             {activeInbound.length > 0 && (
               <div>
                 <label className="text-[10px] font-mono uppercase text-slate-400 tracking-wider block mb-2">
-                  INBOUND CONSUMERS (CALLERS & IMPORTERS) — {activeInbound.length}
+                  UPSTREAM CONSUMERS (CALLERS & IMPORTERS) — {activeInbound.length}
                 </label>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeInbound.map((edge, idx) => {
