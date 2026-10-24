@@ -144,44 +144,47 @@ interface SimLink {
   isIntraSatellite?: boolean
 }
 
-// Enterprise Dark-Mode Palette (Linear / Raycast / GitHub Dependency Graph style)
+// Enterprise Dark-Mode Palette (JetBrains / VS Code Matte IDE Style)
+export const FONT_SANS = "var(--font-hanken), Hanken Grotesk, system-ui, -apple-system, sans-serif"
+export const FONT_MONO = "var(--font-jetbrains), JetBrains Mono, ui-monospace, monospace"
+
 const PALETTE = {
   bg: "#090d16",
-  gridDot: "#1f2937",
+  gridDot: "#1e293b",
   fileCard: {
-    fill: "#0f172a",
-    stroke: "#334155",
+    fill: "#111622",
+    stroke: "#1e293b",
     strokeHover: "#38bdf8",
     text: "#f8fafc",
     subtext: "#64748b",
-    badgeBg: "#1e293b",
+    badgeBg: "#161f30",
     badgeText: "#94a3b8",
   },
   roles: {
-    Module: { fill: "#1e293b", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
-    CodeFile: { fill: "#1e293b", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
-    File: { fill: "#1e293b", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
-    Class: { fill: "#0f2e22", stroke: "#10b981", text: "#a7f3d0", badge: "#10b981", bg: "rgba(16, 185, 129, 0.12)" },
-    Struct: { fill: "#0f2e22", stroke: "#10b981", text: "#a7f3d0", badge: "#10b981", bg: "rgba(16, 185, 129, 0.12)" },
-    Interface: { fill: "#1e1b4b", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "rgba(129, 140, 248, 0.12)" },
-    Trait: { fill: "#1e1b4b", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "rgba(129, 140, 248, 0.12)" },
-    Type: { fill: "#1e1b4b", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "rgba(129, 140, 248, 0.12)" },
-    Function: { fill: "#332208", stroke: "#f59e0b", text: "#fef3c7", badge: "#f59e0b", bg: "rgba(245, 158, 11, 0.12)" },
-    Method: { fill: "#332208", stroke: "#f59e0b", text: "#fef3c7", badge: "#f59e0b", bg: "rgba(245, 158, 11, 0.12)" },
-    Document: { fill: "#13233a", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)" },
-    DocumentChunk: { fill: "#13233a", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)" },
-    Documentation: { fill: "#13233a", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)" },
-    Spec: { fill: "#13233a", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)" },
-    TextSummary: { fill: "#13233a", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)" },
-    Entity: { fill: "#1c1917", stroke: "#78716c", text: "#e7e5e4", badge: "#78716c", bg: "rgba(120, 113, 108, 0.12)" },
-    default: { fill: "#1e293b", stroke: "#475569", text: "#cbd5e1", badge: "#94a3b8", bg: "rgba(71, 85, 105, 0.12)" },
+    Module: { fill: "#111622", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0e2738" },
+    CodeFile: { fill: "#111622", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0e2738" },
+    File: { fill: "#111622", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0e2738" },
+    Class: { fill: "#111622", stroke: "#10b981", text: "#a7f3d0", badge: "#10b981", bg: "#0d2a1d" },
+    Struct: { fill: "#111622", stroke: "#10b981", text: "#a7f3d0", badge: "#10b981", bg: "#0d2a1d" },
+    Interface: { fill: "#111622", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "#1a1b3a" },
+    Trait: { fill: "#111622", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "#1a1b3a" },
+    Type: { fill: "#111622", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "#1a1b3a" },
+    Function: { fill: "#111622", stroke: "#f59e0b", text: "#fef3c7", badge: "#f59e0b", bg: "#2d1f0d" },
+    Method: { fill: "#111622", stroke: "#f59e0b", text: "#fef3c7", badge: "#f59e0b", bg: "#2d1f0d" },
+    Document: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
+    DocumentChunk: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
+    Documentation: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
+    Spec: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
+    TextSummary: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
+    Entity: { fill: "#111622", stroke: "#78716c", text: "#e7e5e4", badge: "#78716c", bg: "#1c1917" },
+    default: { fill: "#111622", stroke: "#475569", text: "#cbd5e1", badge: "#94a3b8", bg: "#1e293b" },
   },
   links: {
-    default: "#475569",
-    calls: "#60a5fa",
-    imports: "#818cf8",
-    extends: "#a78bfa",
-    spoke: "rgba(56, 189, 248, 0.35)",
+    default: "#334155",
+    calls: "#475569",
+    imports: "#475569",
+    extends: "#64748b",
+    spoke: "rgba(56, 189, 248, 0.25)",
     upstreamActive: "#38bdf8",   // Dependencies (imported by this node)
     downstreamActive: "#fbbf24", // Consumers (imports this node)
     activeUpstream: "#38bdf8",
@@ -1019,8 +1022,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("text-anchor", "middle")
         .attr("fill", tDef.badgeColor)
         .attr("font-size", 9)
-        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-family", FONT_SANS)
         .attr("font-weight", "bold")
+        .attr("letter-spacing", "0.06em")
         .attr("pointer-events", "none")
         .text(`TIER ${tDef.tier}`)
 
@@ -1030,8 +1034,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("y", y - 23)
         .attr("fill", "#f1f5f9")
         .attr("font-size", 11.5)
-        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-family", FONT_SANS)
         .attr("font-weight", "600")
+        .attr("letter-spacing", "0.02em")
         .attr("pointer-events", "none")
         .text(tDef.label)
 
@@ -1040,8 +1045,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("x", minX + 98)
         .attr("y", y - 9)
         .attr("fill", "#64748b")
-        .attr("font-size", 8.5)
-        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-size", 9)
+        .attr("font-family", FONT_SANS)
         .attr("pointer-events", "none")
         .text(tDef.sublabel)
     })
@@ -1076,8 +1081,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("text-anchor", "middle")
         .attr("fill", "#94a3b8")
         .attr("font-size", 10)
-        .attr("font-family", "JetBrains Mono, monospace")
+        .attr("font-family", FONT_SANS)
         .attr("font-weight", "bold")
+        .attr("letter-spacing", "0.06em")
         .attr("pointer-events", "none")
         .text("✦ UTILITY & DOCS")
     }
@@ -1180,18 +1186,29 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const tInfo = getTierInfo(d.tier)
         return tInfo.borderColor
       })
-      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2 : 1.5)
+      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2 : 1.2)
       .style("filter", (d) => (d.properties?.is_god_node || (d as any).is_god_node)
         ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
         : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
 
+    // Left tier accent strip
+    hubGroup.append("rect")
+      .attr("class", "arch-card-accent")
+      .attr("x", -CARD_W / 2)
+      .attr("y", -CARD_H / 2 + 6)
+      .attr("width", 3)
+      .attr("height", CARD_H - 12)
+      .attr("rx", 1.5)
+      .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
+      .attr("pointer-events", "none")
+
     // Tier indicator tag on card
     const tierPill = hubGroup.append("g")
       .attr("class", "arch-tier-pill")
-      .attr("transform", `translate(${-CARD_W / 2 + 8}, ${-CARD_H / 2 + 6})`)
+      .attr("transform", `translate(${-CARD_W / 2 + 10}, ${-CARD_H / 2 + 6})`)
 
     tierPill.append("rect")
-      .attr("width", 24)
+      .attr("width", 26)
       .attr("height", 13)
       .attr("rx", 6.5)
       .attr("fill", (d) => getTierInfo(d.tier).fillColor)
@@ -1200,13 +1217,14 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
     tierPill.append("text")
       .text((d) => d.tier === -1 ? "UTIL" : `T${d.tier}`)
-      .attr("x", 12)
+      .attr("x", 13)
       .attr("y", 9.5)
       .attr("text-anchor", "middle")
       .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
       .attr("font-size", 7.5)
       .attr("font-weight", "bold")
-      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-family", FONT_SANS)
+      .attr("letter-spacing", "0.04em")
       .attr("pointer-events", "none")
 
     // Module Directory Subtitle
@@ -1217,11 +1235,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const grp = d.moduleGroup
         return grp.length > 14 ? "…" + grp.slice(-13) + "/" : `${grp}/`
       })
-      .attr("x", -CARD_W / 2 + 36)
+      .attr("x", -CARD_W / 2 + 40)
       .attr("y", -CARD_H / 2 + 16)
       .attr("fill", PALETTE.fileCard.subtext)
       .attr("font-size", 8.5)
-      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // File Name Title
@@ -1236,7 +1254,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("fill", PALETTE.fileCard.text)
       .attr("font-size", 10.5)
       .attr("font-weight", 600)
-      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // Interactive Child Symbols Expand/Collapse Badge
@@ -1269,7 +1287,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("fill", (d) => expandedHubIds.has(d.id) ? "#ffffff" : "#38bdf8")
       .attr("font-size", 9.5)
       .attr("font-weight", "bold")
-      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // SATELLITE SUB-GRID SYMBOLS
@@ -1288,9 +1306,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
     satGroup.append("circle")
       .attr("r", (d) => getNodeRadius(d.type, d))
-      .attr("fill", (d) => getNodeStyle(d.type).fill)
+      .attr("fill", (d) => getNodeStyle(d.type).bg)
       .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : getNodeStyle(d.type).stroke)
-      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.8)
+      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.5)
       .style("filter", (d) => `drop-shadow(0 0 6px ${getNodeStyle(d.type).stroke}40)`)
 
     satGroup.append("text")
@@ -1298,9 +1316,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .text((d) => getNodeGlyph(d.type))
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
-      .attr("fill", (d) => getNodeStyle(d.type).text)
+      .attr("fill", (d) => getNodeStyle(d.type).badge)
       .attr("font-size", 9.5)
-      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-family", FONT_MONO)
       .attr("font-weight", "bold")
       .attr("pointer-events", "none")
 
@@ -1312,9 +1330,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
       .attr("dx", (d) => getNodeRadius(d.type, d) + 6)
       .attr("dy", "0.35em")
-      .attr("fill", "#cbd5e1")
+      .attr("fill", "#e2e8f0")
       .attr("font-size", 9)
-      .attr("font-family", "JetBrains Mono, monospace")
+      .attr("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // Drag behavior with simulation wake-up and tier Y constraint
@@ -1850,13 +1868,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       {/* TOP HEADER CONTROLS (View Mode Toggle & Layered Architecture Metrics) */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-30">
         {/* Left: View Mode Toggle */}
-        <div className="flex items-center gap-2 pointer-events-auto bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl shadow-xl">
+        <div className="flex items-center gap-2 pointer-events-auto bg-[#111622]/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl shadow-xl">
           <button
             onClick={() => {
               setGraphLevel("architecture")
               setExpandedHubIds(new Set())
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-sans font-medium tracking-wide transition-all ${
               graphLevel === "architecture"
                 ? "bg-primary text-on-primary shadow-md"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
@@ -1871,7 +1889,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               const allHubIds = new Set(allArchNodes.map(n => n.id))
               setExpandedHubIds(allHubIds)
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-sans font-medium tracking-wide transition-all ${
               graphLevel === "symbols"
                 ? "bg-primary text-on-primary shadow-md"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
@@ -1884,14 +1902,14 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
         {/* Right: Architectural Metrics */}
         <div className="flex items-center gap-3 pointer-events-none">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#111622]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
             <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]"></span>
             <span className="font-mono text-xs text-slate-300">
               5 Architectural Tiers • {displayNodes.filter(n => (n as any).isHub).length} Files
               {displayNodes.filter(n => (n as any).isSatellite).length > 0 && ` • ${displayNodes.filter(n => (n as any).isSatellite).length} Symbols`}
             </span>
           </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#111622]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
             <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]"></span>
             <span className="font-mono text-xs text-slate-300">
               {displayEdges.filter(e => (e as any).isHighway).length} Flow Edges
@@ -1901,7 +1919,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       </div>
 
       {/* FLOATING ACTION TOOLBAR */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-[#0f172a]/95 backdrop-blur-md border border-slate-800 px-6 py-2.5 rounded-full flex items-center gap-5 shadow-2xl pointer-events-auto z-20">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-[#111622]/95 backdrop-blur-md border border-slate-800 px-6 py-2.5 rounded-full flex items-center gap-5 shadow-2xl pointer-events-auto z-20">
         <div className="flex items-center gap-2 pr-5 border-r border-slate-800">
           <button
             className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-full transition-colors"
@@ -1923,7 +1941,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         <div className="flex items-center gap-3">
           {/* Sub-grid Expand/Collapse All Toggle */}
           <button
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-sans text-xs font-medium tracking-wide transition-all ${
               expandedHubIds.size > 0
                 ? "bg-sky-950/80 text-sky-300 border border-sky-800/60 shadow-[0_0_8px_rgba(56,189,248,0.25)]"
                 : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
@@ -1940,16 +1958,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           {/* Filter Dropdown */}
           <div className="relative">
             <button
-              className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-md text-slate-300 font-mono text-xs transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-md text-slate-300 font-sans text-xs font-medium tracking-wide transition-colors"
               onClick={() => setFilterOpen(!filterOpen)}
             >
               <span className="material-symbols-outlined text-sm">filter_list</span> Filter
             </button>
             {filterOpen && (
-              <div className="absolute bottom-full mb-2 left-0 bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-2xl min-w-[200px] z-50">
-                <span className="font-mono text-[10px] text-slate-500 uppercase tracking-wider block mb-3">NODE TYPES</span>
+              <div className="absolute bottom-full mb-2 left-0 bg-[#111622] border border-slate-800 rounded-xl p-4 shadow-2xl min-w-[200px] z-50">
+                <span className="font-sans text-[10px] text-slate-400 uppercase tracking-wider block mb-3 font-semibold">NODE TYPES</span>
                 {[...new Set(displayNodes.map(n => n.type))].map(type => (
-                  <label key={type} className="flex items-center gap-2 py-1.5 cursor-pointer font-mono text-xs text-slate-300 hover:text-white">
+                  <label key={type} className="flex items-center gap-2 py-1.5 cursor-pointer font-sans text-xs text-slate-300 hover:text-white">
                     <input
                       type="checkbox"
                       checked={!hiddenTypes.has(type)}
@@ -1961,7 +1979,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                       className="accent-primary"
                     />
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getNodeStyle(type).stroke }}></span>
-                    {type}
+                    <span className="font-mono text-xs">{type}</span>
                   </label>
                 ))}
               </div>
@@ -1970,7 +1988,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
           <button
             onClick={() => setViewMode(viewMode === "d3" ? "cognee" : "d3")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-sans text-xs font-medium tracking-wide transition-all ${
               viewMode === "cognee"
                 ? "bg-primary text-on-primary"
                 : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
@@ -1981,7 +1999,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           </button>
 
           <button
-            className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-md text-slate-300 font-mono text-xs transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-md text-slate-300 font-sans text-xs font-medium tracking-wide transition-colors disabled:opacity-50"
             onClick={handleDownloadGraph}
             disabled={downloading}
           >
@@ -1993,7 +2011,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           <div className="relative">
             <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
             <input
-              className="bg-[#0b0f19] border border-slate-800 rounded-md pl-8 pr-7 py-1 font-mono text-xs text-slate-200 placeholder-slate-500 focus:border-primary outline-none w-44 transition-all"
+              className="bg-[#0b0f19] border border-slate-800 rounded-md pl-8 pr-7 py-1 font-sans text-xs text-slate-200 placeholder-slate-500 focus:border-primary outline-none w-44 transition-all"
               placeholder="Filter file or symbol..."
               type="text"
               value={searchQuery}
