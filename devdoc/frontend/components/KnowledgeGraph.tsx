@@ -30,8 +30,8 @@ export const ARCH_TIERS: ArchTierInfo[] = [
     shortLabel: "Tier 0 • Entry",
     sublabel: "Application bootstrap, server initialization, CLI triggers",
     badgeColor: "#38bdf8",
-    borderColor: "rgba(56, 189, 248, 0.45)",
-    fillColor: "rgba(56, 189, 248, 0.04)",
+    borderColor: "rgba(56, 189, 248, 0.55)",
+    fillColor: "rgba(14, 165, 233, 0.08)",
   },
   {
     tier: 1,
@@ -39,9 +39,9 @@ export const ARCH_TIERS: ArchTierInfo[] = [
     label: "HTTP Controllers & Routing",
     shortLabel: "Tier 1 • Routing",
     sublabel: "API routes, endpoint controllers, request routing",
-    badgeColor: "#818cf8",
-    borderColor: "rgba(129, 140, 248, 0.45)",
-    fillColor: "rgba(129, 140, 248, 0.04)",
+    badgeColor: "#a5b4fc",
+    borderColor: "rgba(129, 140, 248, 0.55)",
+    fillColor: "rgba(99, 102, 241, 0.08)",
   },
   {
     tier: 2,
@@ -49,9 +49,9 @@ export const ARCH_TIERS: ArchTierInfo[] = [
     label: "Core Business Logic & Topology",
     shortLabel: "Tier 2 • Services",
     sublabel: "Graph topology engines, domain services & orchestration",
-    badgeColor: "#10b981",
-    borderColor: "rgba(16, 185, 129, 0.45)",
-    fillColor: "rgba(16, 185, 129, 0.04)",
+    badgeColor: "#34d399",
+    borderColor: "rgba(16, 185, 129, 0.55)",
+    fillColor: "rgba(16, 185, 129, 0.08)",
   },
   {
     tier: 3,
@@ -59,9 +59,9 @@ export const ARCH_TIERS: ArchTierInfo[] = [
     label: "Parsers, Symbols & Manifests",
     shortLabel: "Tier 3 • Parsing",
     sublabel: "AST parsing, symbol indexing & manifest tracking",
-    badgeColor: "#f59e0b",
-    borderColor: "rgba(245, 158, 11, 0.45)",
-    fillColor: "rgba(245, 158, 11, 0.04)",
+    badgeColor: "#fbbf24",
+    borderColor: "rgba(245, 158, 11, 0.55)",
+    fillColor: "rgba(245, 158, 11, 0.08)",
   },
   {
     tier: 4,
@@ -69,9 +69,9 @@ export const ARCH_TIERS: ArchTierInfo[] = [
     label: "Configuration & State",
     shortLabel: "Tier 4 • Config",
     sublabel: "Environment configuration, settings, schemas & constants",
-    badgeColor: "#ec4899",
-    borderColor: "rgba(236, 72, 153, 0.45)",
-    fillColor: "rgba(236, 72, 153, 0.04)",
+    badgeColor: "#f472b6",
+    borderColor: "rgba(244, 63, 94, 0.55)",
+    fillColor: "rgba(244, 63, 94, 0.08)",
   },
 ]
 
@@ -81,9 +81,9 @@ export const UTILITY_TIER_INFO: ArchTierInfo = {
   label: "Utility & Non-Code Docs",
   shortLabel: "Utility",
   sublabel: "Documentation, specifications & standalone assets",
-  badgeColor: "#94a3b8",
-  borderColor: "rgba(148, 163, 184, 0.45)",
-  fillColor: "rgba(148, 163, 184, 0.04)",
+  badgeColor: "#cbd5e1",
+  borderColor: "rgba(148, 163, 184, 0.55)",
+  fillColor: "rgba(148, 163, 184, 0.08)",
 }
 
 export function getTierInfo(tier: number): ArchTierInfo {
@@ -144,47 +144,47 @@ interface SimLink {
   isIntraSatellite?: boolean
 }
 
-// Enterprise Dark-Mode Palette (JetBrains / VS Code Matte IDE Style)
-export const FONT_SANS = "var(--font-hanken), Hanken Grotesk, system-ui, -apple-system, sans-serif"
-export const FONT_MONO = "var(--font-jetbrains), JetBrains Mono, ui-monospace, monospace"
+// Enterprise Dark-Mode Palette (High-Contrast Modern Developer UI)
+export const FONT_SANS = "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+export const FONT_MONO = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace"
 
 const PALETTE = {
   bg: "#090d16",
-  gridDot: "#1e293b",
+  gridDot: "#222f46",
   fileCard: {
-    fill: "#111622",
-    stroke: "#1e293b",
+    fill: "#151e32",
+    stroke: "#334155",
     strokeHover: "#38bdf8",
-    text: "#f8fafc",
-    subtext: "#64748b",
-    badgeBg: "#161f30",
-    badgeText: "#94a3b8",
+    text: "#ffffff",
+    subtext: "#94a3b8",
+    badgeBg: "#1e293b",
+    badgeText: "#e2e8f0",
   },
   roles: {
-    Module: { fill: "#111622", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0e2738" },
-    CodeFile: { fill: "#111622", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0e2738" },
-    File: { fill: "#111622", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0e2738" },
-    Class: { fill: "#111622", stroke: "#10b981", text: "#a7f3d0", badge: "#10b981", bg: "#0d2a1d" },
-    Struct: { fill: "#111622", stroke: "#10b981", text: "#a7f3d0", badge: "#10b981", bg: "#0d2a1d" },
-    Interface: { fill: "#111622", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "#1a1b3a" },
-    Trait: { fill: "#111622", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "#1a1b3a" },
-    Type: { fill: "#111622", stroke: "#818cf8", text: "#c7d2fe", badge: "#818cf8", bg: "#1a1b3a" },
-    Function: { fill: "#111622", stroke: "#f59e0b", text: "#fef3c7", badge: "#f59e0b", bg: "#2d1f0d" },
-    Method: { fill: "#111622", stroke: "#f59e0b", text: "#fef3c7", badge: "#f59e0b", bg: "#2d1f0d" },
-    Document: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
-    DocumentChunk: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
-    Documentation: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
-    Spec: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
-    TextSummary: { fill: "#111622", stroke: "#60a5fa", text: "#dbeafe", badge: "#60a5fa", bg: "#13233a" },
-    Entity: { fill: "#111622", stroke: "#78716c", text: "#e7e5e4", badge: "#78716c", bg: "#1c1917" },
-    default: { fill: "#111622", stroke: "#475569", text: "#cbd5e1", badge: "#94a3b8", bg: "#1e293b" },
+    Module: { fill: "#151e32", stroke: "#38bdf8", text: "#ffffff", badge: "#38bdf8", bg: "#0c283f" },
+    CodeFile: { fill: "#151e32", stroke: "#38bdf8", text: "#ffffff", badge: "#38bdf8", bg: "#0c283f" },
+    File: { fill: "#151e32", stroke: "#38bdf8", text: "#ffffff", badge: "#38bdf8", bg: "#0c283f" },
+    Class: { fill: "#151e32", stroke: "#10b981", text: "#ffffff", badge: "#34d399", bg: "#063826" },
+    Struct: { fill: "#151e32", stroke: "#10b981", text: "#ffffff", badge: "#34d399", bg: "#063826" },
+    Interface: { fill: "#151e32", stroke: "#818cf8", text: "#ffffff", badge: "#a5b4fc", bg: "#1f1f4e" },
+    Trait: { fill: "#151e32", stroke: "#818cf8", text: "#ffffff", badge: "#a5b4fc", bg: "#1f1f4e" },
+    Type: { fill: "#151e32", stroke: "#818cf8", text: "#ffffff", badge: "#a5b4fc", bg: "#1f1f4e" },
+    Function: { fill: "#151e32", stroke: "#f59e0b", text: "#ffffff", badge: "#fbbf24", bg: "#3d2204" },
+    Method: { fill: "#151e32", stroke: "#f59e0b", text: "#ffffff", badge: "#fbbf24", bg: "#3d2204" },
+    Document: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
+    DocumentChunk: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
+    Documentation: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
+    Spec: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
+    TextSummary: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
+    Entity: { fill: "#151e32", stroke: "#a8a29e", text: "#ffffff", badge: "#a8a29e", bg: "#292524" },
+    default: { fill: "#151e32", stroke: "#64748b", text: "#ffffff", badge: "#cbd5e1", bg: "#1e293b" },
   },
   links: {
-    default: "#334155",
-    calls: "#475569",
-    imports: "#475569",
-    extends: "#64748b",
-    spoke: "rgba(56, 189, 248, 0.25)",
+    default: "#64748b",
+    calls: "#60a5fa",
+    imports: "#818cf8",
+    extends: "#a78bfa",
+    spoke: "rgba(56, 189, 248, 0.4)",
     upstreamActive: "#38bdf8",   // Dependencies (imported by this node)
     downstreamActive: "#fbbf24", // Consumers (imports this node)
     activeUpstream: "#38bdf8",
@@ -990,7 +990,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("y1", y - 48)
         .attr("x2", codeMaxX)
         .attr("y2", y - 48)
-        .attr("stroke", "rgba(51, 65, 85, 0.28)")
+        .attr("stroke", "rgba(100, 116, 139, 0.45)")
         .attr("stroke-dasharray", "6, 6")
         .attr("pointer-events", "none")
 
@@ -1000,53 +1000,60 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("y", y - 48)
         .attr("width", codeMaxX - minX)
         .attr("height", tHeight)
-        .attr("rx", 10)
+        .attr("rx", 12)
         .attr("fill", tDef.fillColor)
+        .attr("stroke", tDef.borderColor)
+        .attr("stroke-width", 1)
+        .attr("stroke-opacity", 0.35)
         .attr("pointer-events", "none")
 
       // Left-pinned Tier Pill Badge
       tierGroup.append("rect")
         .attr("x", minX + 16)
         .attr("y", y - 36)
-        .attr("width", 72)
-        .attr("height", 18)
-        .attr("rx", 9)
+        .attr("width", 78)
+        .attr("height", 20)
+        .attr("rx", 10)
         .attr("fill", tDef.fillColor)
         .attr("stroke", tDef.borderColor)
-        .attr("stroke-width", 1)
+        .attr("stroke-width", 1.2)
         .attr("pointer-events", "none")
 
       tierGroup.append("text")
-        .attr("x", minX + 52)
-        .attr("y", y - 23)
+        .attr("x", minX + 55)
+        .attr("y", y - 22)
         .attr("text-anchor", "middle")
         .attr("fill", tDef.badgeColor)
-        .attr("font-size", 9)
+        .attr("font-size", 9.5)
         .attr("font-family", FONT_SANS)
-        .attr("font-weight", "bold")
-        .attr("letter-spacing", "0.06em")
+        .style("font-family", FONT_SANS)
+        .attr("font-weight", "800")
+        .attr("letter-spacing", "0.08em")
         .attr("pointer-events", "none")
         .text(`TIER ${tDef.tier}`)
 
       // Left-pinned Tier Header Title
       tierGroup.append("text")
-        .attr("x", minX + 98)
-        .attr("y", y - 23)
-        .attr("fill", "#f1f5f9")
-        .attr("font-size", 11.5)
+        .attr("x", minX + 106)
+        .attr("y", y - 22)
+        .attr("fill", "#ffffff")
+        .attr("font-size", 13.5)
         .attr("font-family", FONT_SANS)
-        .attr("font-weight", "600")
+        .style("font-family", FONT_SANS)
+        .attr("font-weight", "700")
         .attr("letter-spacing", "0.02em")
         .attr("pointer-events", "none")
         .text(tDef.label)
 
       // Left-pinned Tier Subtitle
       tierGroup.append("text")
-        .attr("x", minX + 98)
-        .attr("y", y - 9)
-        .attr("fill", "#64748b")
-        .attr("font-size", 9)
+        .attr("x", minX + 106)
+        .attr("y", y - 7)
+        .attr("fill", "#94a3b8")
+        .attr("font-size", 10)
         .attr("font-family", FONT_SANS)
+        .style("font-family", FONT_SANS)
+        .attr("font-weight", "400")
         .attr("pointer-events", "none")
         .text(tDef.sublabel)
     })
@@ -1059,7 +1066,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("y1", TOP_TIER_Y - 48)
         .attr("x2", utilityColumnX - 45)
         .attr("y2", maxY)
-        .attr("stroke", "rgba(148, 163, 184, 0.25)")
+        .attr("stroke", "rgba(148, 163, 184, 0.4)")
         .attr("stroke-dasharray", "4, 4")
         .attr("pointer-events", "none")
 
@@ -1068,10 +1075,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("y", TOP_TIER_Y - 48)
         .attr("width", 210)
         .attr("height", Math.max(160, utilityNodes.length * 80 + 40))
-        .attr("rx", 10)
+        .attr("rx", 12)
         .attr("fill", UTILITY_TIER_INFO.fillColor)
         .attr("stroke", UTILITY_TIER_INFO.borderColor)
         .attr("stroke-width", 1)
+        .attr("stroke-opacity", 0.4)
         .attr("stroke-dasharray", "4, 4")
         .attr("pointer-events", "none")
 
@@ -1079,10 +1087,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("x", utilityColumnX + 70)
         .attr("y", TOP_TIER_Y - 24)
         .attr("text-anchor", "middle")
-        .attr("fill", "#94a3b8")
-        .attr("font-size", 10)
+        .attr("fill", "#e2e8f0")
+        .attr("font-size", 11)
         .attr("font-family", FONT_SANS)
-        .attr("font-weight", "bold")
+        .style("font-family", FONT_SANS)
+        .attr("font-weight", "700")
         .attr("letter-spacing", "0.06em")
         .attr("pointer-events", "none")
         .text("✦ UTILITY & DOCS")
@@ -1099,8 +1108,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("class", "edge-path")
       .attr("fill", "none")
       .attr("stroke", (d) => {
-        if (d.isSpoke) return "rgba(56, 189, 248, 0.28)"
-        if (d.isIntraSatellite) return "rgba(148, 163, 184, 0.2)"
+        if (d.isSpoke) return "rgba(56, 189, 248, 0.45)"
+        if (d.isIntraSatellite) return "rgba(148, 163, 184, 0.35)"
         if (d.relation.includes("IMPORTS")) return PALETTE.links.imports
         if (d.relation.includes("CALLS")) return PALETTE.links.calls
         return PALETTE.links.default
@@ -1112,12 +1121,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
       .attr("marker-end", (d) => d.isSpoke ? "none" : "url(#arrow-default)")
       .attr("stroke-width", (d) => {
-        if (d.isSpoke) return 1.2
-        if (d.isIntraSatellite) return 1
-        if (d.isHighway) return Math.max(2, Math.min(5, Math.sqrt(d.weight || 1) * 2))
-        return Math.max(1, Math.min(3, (d.weight || 1) * 1.5))
+        if (d.isSpoke) return 1.5
+        if (d.isIntraSatellite) return 1.2
+        if (d.isHighway) return Math.max(2.4, Math.min(5.5, Math.sqrt(d.weight || 1) * 2.4))
+        return Math.max(1.8, Math.min(4, (d.weight || 1) * 2))
       })
-      .attr("stroke-opacity", (d) => d.isSpoke ? 0.75 : 0.6)
+      .attr("stroke-opacity", (d) => d.isSpoke ? 0.85 : 0.85)
 
     // Link Labels (coupling weight / relation)
     const linkLabelGroup = g.append("g").attr("class", "link-labels")
@@ -1126,9 +1135,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .data(simLinks.filter(l => !l.isSpoke))
       .join("text")
       .text((d) => d.isHighway ? `${d.weight > 1 ? `${d.weight}x ` : ""}${d.relation}` : d.relation)
-      .attr("fill", "#94a3b8")
-      .attr("font-size", 8.5)
-      .attr("font-family", "JetBrains Mono, ui-monospace, monospace")
+      .attr("fill", "#cbd5e1")
+      .attr("font-size", 9.5)
+      .attr("font-family", FONT_MONO)
+      .style("font-family", FONT_MONO)
+      .attr("font-weight", "600")
       .attr("text-anchor", "middle")
       .attr("dy", -6)
       .attr("pointer-events", "none")
@@ -1167,8 +1178,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
 
     // ARCHITECTURAL FILE CARD
-    const CARD_W = 160
-    const CARD_H = 48
+    const CARD_W = 168
+    const CARD_H = 50
 
     const hubGroup = nodeGroup.filter((d) => Boolean(d.isHub))
 
@@ -1178,53 +1189,54 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("y", -CARD_H / 2)
       .attr("width", CARD_W)
       .attr("height", CARD_H)
-      .attr("rx", 8)
-      .attr("ry", 8)
+      .attr("rx", 9)
+      .attr("ry", 9)
       .attr("fill", PALETTE.fileCard.fill)
       .attr("stroke", (d) => {
         if (d.properties?.is_god_node || (d as any).is_god_node) return "#38bdf8"
         const tInfo = getTierInfo(d.tier)
         return tInfo.borderColor
       })
-      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2 : 1.2)
+      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.5)
       .style("filter", (d) => (d.properties?.is_god_node || (d as any).is_god_node)
-        ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
-        : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
+        ? "drop-shadow(0 0 16px rgba(56, 189, 248, 0.55)) drop-shadow(0 6px 18px rgba(0, 0, 0, 0.7))"
+        : "drop-shadow(0 6px 18px rgba(0, 0, 0, 0.7))")
 
     // Left tier accent strip
     hubGroup.append("rect")
       .attr("class", "arch-card-accent")
       .attr("x", -CARD_W / 2)
-      .attr("y", -CARD_H / 2 + 6)
-      .attr("width", 3)
-      .attr("height", CARD_H - 12)
-      .attr("rx", 1.5)
+      .attr("y", -CARD_H / 2 + 7)
+      .attr("width", 3.5)
+      .attr("height", CARD_H - 14)
+      .attr("rx", 1.75)
       .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
       .attr("pointer-events", "none")
 
     // Tier indicator tag on card
     const tierPill = hubGroup.append("g")
       .attr("class", "arch-tier-pill")
-      .attr("transform", `translate(${-CARD_W / 2 + 10}, ${-CARD_H / 2 + 6})`)
+      .attr("transform", `translate(${-CARD_W / 2 + 10}, ${-CARD_H / 2 + 7})`)
 
     tierPill.append("rect")
       .attr("width", 26)
-      .attr("height", 13)
-      .attr("rx", 6.5)
-      .attr("fill", (d) => getTierInfo(d.tier).fillColor)
+      .attr("height", 14)
+      .attr("rx", 7)
+      .attr("fill", (d) => getTierInfo(d.tier).badgeColor + "22")
       .attr("stroke", (d) => getTierInfo(d.tier).borderColor)
-      .attr("stroke-width", 0.8)
+      .attr("stroke-width", 1)
 
     tierPill.append("text")
       .text((d) => d.tier === -1 ? "UTIL" : `T${d.tier}`)
       .attr("x", 13)
-      .attr("y", 9.5)
+      .attr("y", 10.5)
       .attr("text-anchor", "middle")
       .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
-      .attr("font-size", 7.5)
-      .attr("font-weight", "bold")
+      .attr("font-size", 8)
+      .attr("font-weight", "800")
       .attr("font-family", FONT_SANS)
-      .attr("letter-spacing", "0.04em")
+      .style("font-family", FONT_SANS)
+      .attr("letter-spacing", "0.05em")
       .attr("pointer-events", "none")
 
     // Module Directory Subtitle
@@ -1235,11 +1247,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const grp = d.moduleGroup
         return grp.length > 14 ? "…" + grp.slice(-13) + "/" : `${grp}/`
       })
-      .attr("x", -CARD_W / 2 + 40)
-      .attr("y", -CARD_H / 2 + 16)
-      .attr("fill", PALETTE.fileCard.subtext)
-      .attr("font-size", 8.5)
+      .attr("x", -CARD_W / 2 + 42)
+      .attr("y", -CARD_H / 2 + 17)
+      .attr("fill", "#94a3b8")
+      .attr("font-size", 9.5)
+      .attr("font-weight", "500")
       .attr("font-family", FONT_MONO)
+      .style("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // File Name Title
@@ -1250,17 +1264,18 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         return name.length > 15 ? name.slice(0, 13) + "…" : name
       })
       .attr("x", -CARD_W / 2 + 10)
-      .attr("y", -CARD_H / 2 + 34)
-      .attr("fill", PALETTE.fileCard.text)
-      .attr("font-size", 10.5)
-      .attr("font-weight", 600)
+      .attr("y", -CARD_H / 2 + 36)
+      .attr("fill", "#ffffff")
+      .attr("font-size", 11.5)
+      .attr("font-weight", "700")
       .attr("font-family", FONT_MONO)
+      .style("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // Interactive Child Symbols Expand/Collapse Badge
     const badge = hubGroup.append("g")
       .attr("class", "hub-satellites-badge")
-      .attr("transform", `translate(${CARD_W / 2 - 42}, ${-CARD_H / 2 + 14})`)
+      .attr("transform", `translate(${CARD_W / 2 - 42}, ${-CARD_H / 2 + 15})`)
       .attr("cursor", "pointer")
       .on("click", (event, d) => {
         event.stopPropagation()
@@ -1271,9 +1286,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("width", 34)
       .attr("height", 20)
       .attr("rx", 10)
-      .attr("fill", (d) => expandedHubIds.has(d.id) ? "rgba(56, 189, 248, 0.28)" : "rgba(56, 189, 248, 0.1)")
-      .attr("stroke", (d) => expandedHubIds.has(d.id) ? "#38bdf8" : "rgba(56, 189, 248, 0.35)")
-      .attr("stroke-width", 1)
+      .attr("fill", (d) => expandedHubIds.has(d.id) ? "rgba(56, 189, 248, 0.3)" : "rgba(56, 189, 248, 0.12)")
+      .attr("stroke", (d) => expandedHubIds.has(d.id) ? "#38bdf8" : "rgba(56, 189, 248, 0.5)")
+      .attr("stroke-width", 1.2)
 
     badge.append("text")
       .text((d) => {
@@ -1288,6 +1303,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("font-size", 9.5)
       .attr("font-weight", "bold")
       .attr("font-family", FONT_MONO)
+      .style("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // SATELLITE SUB-GRID SYMBOLS
@@ -1299,17 +1315,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("r", (d) => getNodeRadius(d.type, d) + 5)
       .attr("fill", "none")
       .attr("stroke", "#38bdf8")
-      .attr("stroke-width", 1.5)
+      .attr("stroke-width", 2)
       .attr("stroke-dasharray", "3, 3")
-      .style("filter", "drop-shadow(0 0 6px #38bdf8)")
+      .style("filter", "drop-shadow(0 0 8px #38bdf8)")
       .attr("pointer-events", "none")
 
     satGroup.append("circle")
       .attr("r", (d) => getNodeRadius(d.type, d))
       .attr("fill", (d) => getNodeStyle(d.type).bg)
       .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : getNodeStyle(d.type).stroke)
-      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.5)
-      .style("filter", (d) => `drop-shadow(0 0 6px ${getNodeStyle(d.type).stroke}40)`)
+      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.8)
+      .style("filter", (d) => `drop-shadow(0 0 8px ${getNodeStyle(d.type).stroke}60)`)
 
     satGroup.append("text")
       .attr("class", "node-glyph")
@@ -1317,9 +1333,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
       .attr("fill", (d) => getNodeStyle(d.type).badge)
-      .attr("font-size", 9.5)
+      .attr("font-size", 10.5)
       .attr("font-family", FONT_MONO)
-      .attr("font-weight", "bold")
+      .style("font-family", FONT_MONO)
+      .attr("font-weight", "800")
       .attr("pointer-events", "none")
 
     satGroup.append("text")
@@ -1328,11 +1345,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const clean = d.label.includes("::") ? d.label.split("::").pop()! : d.label
         return clean.length > 18 ? clean.slice(0, 16) + "…" : clean
       })
-      .attr("dx", (d) => getNodeRadius(d.type, d) + 6)
+      .attr("dx", (d) => getNodeRadius(d.type, d) + 7)
       .attr("dy", "0.35em")
-      .attr("fill", "#e2e8f0")
-      .attr("font-size", 9)
+      .attr("fill", "#f8fafc")
+      .attr("font-size", 10.5)
+      .attr("font-weight", "600")
       .attr("font-family", FONT_MONO)
+      .style("font-family", FONT_MONO)
       .attr("pointer-events", "none")
 
     // Drag behavior with simulation wake-up and tier Y constraint
@@ -1655,8 +1674,8 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const matchesSearch = !q || sLabel.toLowerCase().includes(q) || tLabel.toLowerCase().includes(q)
       const matchesType = !hiddenTypes.has(sType) && !hiddenTypes.has(tType)
 
-      let linkOpacity = d.isSpoke ? 0.75 : 0.6
-      let strokeColor = d.isSpoke ? "rgba(56, 189, 248, 0.28)" : (d.isIntraSatellite ? "rgba(148, 163, 184, 0.2)" : PALETTE.links.default)
+      let linkOpacity = d.isSpoke ? 0.85 : 0.85
+      let strokeColor = d.isSpoke ? "rgba(56, 189, 248, 0.45)" : (d.isIntraSatellite ? "rgba(148, 163, 184, 0.35)" : PALETTE.links.default)
       let markerEnd = d.isSpoke ? "none" : "url(#arrow-default)"
 
       if (!matchesSearch || !matchesType) {
@@ -1868,16 +1887,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       {/* TOP HEADER CONTROLS (View Mode Toggle & Layered Architecture Metrics) */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-30">
         {/* Left: View Mode Toggle */}
-        <div className="flex items-center gap-2 pointer-events-auto bg-[#111622]/90 backdrop-blur-md border border-slate-800 p-1 rounded-xl shadow-xl">
+        <div className="flex items-center gap-2 pointer-events-auto bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-1.5 rounded-xl shadow-2xl">
           <button
             onClick={() => {
               setGraphLevel("architecture")
               setExpandedHubIds(new Set())
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-sans font-medium tracking-wide transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-sans font-semibold tracking-wide transition-all ${
               graphLevel === "architecture"
-                ? "bg-primary text-on-primary shadow-md"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                ? "bg-sky-500 text-white shadow-[0_0_12px_rgba(14,165,233,0.5)]"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
             }`}
           >
             <span className="material-symbols-outlined text-base">layers</span>
@@ -1889,10 +1908,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
               const allHubIds = new Set(allArchNodes.map(n => n.id))
               setExpandedHubIds(allHubIds)
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-sans font-medium tracking-wide transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-sans font-semibold tracking-wide transition-all ${
               graphLevel === "symbols"
-                ? "bg-primary text-on-primary shadow-md"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                ? "bg-sky-500 text-white shadow-[0_0_12px_rgba(14,165,233,0.5)]"
+                : "text-slate-300 hover:text-white hover:bg-slate-800"
             }`}
           >
             <span className="material-symbols-outlined text-base">view_module</span>
@@ -1902,16 +1921,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
         {/* Right: Architectural Metrics */}
         <div className="flex items-center gap-3 pointer-events-none">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#111622]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]"></span>
-            <span className="font-mono text-xs text-slate-300">
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 rounded-full shadow-2xl">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8]"></span>
+            <span className="font-mono text-xs font-medium text-slate-200">
               5 Architectural Tiers • {displayNodes.filter(n => (n as any).isHub).length} Files
               {displayNodes.filter(n => (n as any).isSatellite).length > 0 && ` • ${displayNodes.filter(n => (n as any).isSatellite).length} Symbols`}
             </span>
           </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#111622]/90 backdrop-blur-md border border-slate-800 rounded-full shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]"></span>
-            <span className="font-mono text-xs text-slate-300">
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 rounded-full shadow-2xl">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#fbbf24]"></span>
+            <span className="font-mono text-xs font-medium text-slate-200">
               {displayEdges.filter(e => (e as any).isHighway).length} Flow Edges
             </span>
           </div>
@@ -1919,18 +1938,18 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       </div>
 
       {/* FLOATING ACTION TOOLBAR */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-[#111622]/95 backdrop-blur-md border border-slate-800 px-6 py-2.5 rounded-full flex items-center gap-5 shadow-2xl pointer-events-auto z-20">
-        <div className="flex items-center gap-2 pr-5 border-r border-slate-800">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 px-6 py-2.5 rounded-full flex items-center gap-5 shadow-2xl pointer-events-auto z-20">
+        <div className="flex items-center gap-2 pr-5 border-r border-slate-700/80">
           <button
-            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
             onClick={handleZoomIn}
             title="Zoom In"
           >
             <span className="material-symbols-outlined text-base">add</span>
           </button>
-          <span className="font-mono text-xs text-slate-400">{displayNodes.length}</span>
+          <span className="font-mono text-xs font-semibold text-slate-200">{displayNodes.length}</span>
           <button
-            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
             onClick={handleZoomOut}
             title="Zoom Out"
           >
@@ -1941,10 +1960,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         <div className="flex items-center gap-3">
           {/* Sub-grid Expand/Collapse All Toggle */}
           <button
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-sans text-xs font-medium tracking-wide transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-sans text-xs font-semibold tracking-wide transition-all ${
               expandedHubIds.size > 0
-                ? "bg-sky-950/80 text-sky-300 border border-sky-800/60 shadow-[0_0_8px_rgba(56,189,248,0.25)]"
-                : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
+                ? "bg-sky-950 text-sky-300 border border-sky-600 shadow-[0_0_10px_rgba(56,189,248,0.35)]"
+                : "bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-200 hover:text-white"
             }`}
             onClick={handleToggleExpandAll}
             title={expandedHubIds.size > 0 ? "Collapse all symbol sub-grids" : "Expand all symbol sub-grids"}
@@ -1958,16 +1977,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           {/* Filter Dropdown */}
           <div className="relative">
             <button
-              className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-md text-slate-300 font-sans text-xs font-medium tracking-wide transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-200 hover:text-white font-sans text-xs font-semibold tracking-wide transition-colors"
               onClick={() => setFilterOpen(!filterOpen)}
             >
               <span className="material-symbols-outlined text-sm">filter_list</span> Filter
             </button>
             {filterOpen && (
-              <div className="absolute bottom-full mb-2 left-0 bg-[#111622] border border-slate-800 rounded-xl p-4 shadow-2xl min-w-[200px] z-50">
-                <span className="font-sans text-[10px] text-slate-400 uppercase tracking-wider block mb-3 font-semibold">NODE TYPES</span>
+              <div className="absolute bottom-full mb-2 left-0 bg-[#0f172a] border border-slate-700 rounded-xl p-4 shadow-2xl min-w-[200px] z-50">
+                <span className="font-sans text-[11px] text-slate-300 uppercase tracking-wider block mb-3 font-bold">NODE TYPES</span>
                 {[...new Set(displayNodes.map(n => n.type))].map(type => (
-                  <label key={type} className="flex items-center gap-2 py-1.5 cursor-pointer font-sans text-xs text-slate-300 hover:text-white">
+                  <label key={type} className="flex items-center gap-2 py-1.5 cursor-pointer font-sans text-xs text-slate-200 hover:text-white">
                     <input
                       type="checkbox"
                       checked={!hiddenTypes.has(type)}
@@ -1979,7 +1998,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
                       className="accent-primary"
                     />
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getNodeStyle(type).stroke }}></span>
-                    <span className="font-mono text-xs">{type}</span>
+                    <span className="font-mono text-xs font-medium">{type}</span>
                   </label>
                 ))}
               </div>
@@ -1988,10 +2007,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
           <button
             onClick={() => setViewMode(viewMode === "d3" ? "cognee" : "d3")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-sans text-xs font-medium tracking-wide transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-sans text-xs font-semibold tracking-wide transition-all ${
               viewMode === "cognee"
-                ? "bg-primary text-on-primary"
-                : "bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300"
+                ? "bg-sky-500 text-white shadow-[0_0_12px_rgba(14,165,233,0.5)]"
+                : "bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-200 hover:text-white"
             }`}
           >
             <span className="material-symbols-outlined text-sm">{viewMode === "cognee" ? "layers" : "schema"}</span>
@@ -1999,7 +2018,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
           </button>
 
           <button
-            className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 rounded-md text-slate-300 font-sans text-xs font-medium tracking-wide transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-200 hover:text-white font-sans text-xs font-semibold tracking-wide transition-colors disabled:opacity-50"
             onClick={handleDownloadGraph}
             disabled={downloading}
           >
@@ -2009,9 +2028,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
           {/* Search Input */}
           <div className="relative">
-            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
             <input
-              className="bg-[#0b0f19] border border-slate-800 rounded-md pl-8 pr-7 py-1 font-sans text-xs text-slate-200 placeholder-slate-500 focus:border-primary outline-none w-44 transition-all"
+              className="bg-[#0b101b] border border-slate-700 rounded-lg pl-8 pr-7 py-1.5 font-sans text-xs text-white placeholder-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none w-48 transition-all"
               placeholder="Filter file or symbol..."
               type="text"
               value={searchQuery}
