@@ -150,41 +150,41 @@ export const FONT_MONO = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo,
 
 const PALETTE = {
   bg: "#090d16",
-  gridDot: "#222f46",
+  gridDot: "#1e293b",
   fileCard: {
-    fill: "#151e32",
+    fill: "#0f172a",
     stroke: "#334155",
     strokeHover: "#38bdf8",
-    text: "#ffffff",
-    subtext: "#94a3b8",
+    text: "#f8fafc",
+    subtext: "#64748b",
     badgeBg: "#1e293b",
-    badgeText: "#e2e8f0",
+    badgeText: "#94a3b8",
   },
   roles: {
-    Module: { fill: "#151e32", stroke: "#38bdf8", text: "#ffffff", badge: "#38bdf8", bg: "#0c283f" },
-    CodeFile: { fill: "#151e32", stroke: "#38bdf8", text: "#ffffff", badge: "#38bdf8", bg: "#0c283f" },
-    File: { fill: "#151e32", stroke: "#38bdf8", text: "#ffffff", badge: "#38bdf8", bg: "#0c283f" },
-    Class: { fill: "#151e32", stroke: "#10b981", text: "#ffffff", badge: "#34d399", bg: "#063826" },
-    Struct: { fill: "#151e32", stroke: "#10b981", text: "#ffffff", badge: "#34d399", bg: "#063826" },
-    Interface: { fill: "#151e32", stroke: "#818cf8", text: "#ffffff", badge: "#a5b4fc", bg: "#1f1f4e" },
-    Trait: { fill: "#151e32", stroke: "#818cf8", text: "#ffffff", badge: "#a5b4fc", bg: "#1f1f4e" },
-    Type: { fill: "#151e32", stroke: "#818cf8", text: "#ffffff", badge: "#a5b4fc", bg: "#1f1f4e" },
-    Function: { fill: "#151e32", stroke: "#f59e0b", text: "#ffffff", badge: "#fbbf24", bg: "#3d2204" },
-    Method: { fill: "#151e32", stroke: "#f59e0b", text: "#ffffff", badge: "#fbbf24", bg: "#3d2204" },
-    Document: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
-    DocumentChunk: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
-    Documentation: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
-    Spec: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
-    TextSummary: { fill: "#151e32", stroke: "#60a5fa", text: "#ffffff", badge: "#93c5fd", bg: "#112a4d" },
-    Entity: { fill: "#151e32", stroke: "#a8a29e", text: "#ffffff", badge: "#a8a29e", bg: "#292524" },
-    default: { fill: "#151e32", stroke: "#64748b", text: "#ffffff", badge: "#cbd5e1", bg: "#1e293b" },
+    Module: { fill: "#0f172a", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0c283f" },
+    CodeFile: { fill: "#0f172a", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0c283f" },
+    File: { fill: "#0f172a", stroke: "#38bdf8", text: "#f8fafc", badge: "#38bdf8", bg: "#0c283f" },
+    Class: { fill: "#0f172a", stroke: "#10b981", text: "#f8fafc", badge: "#34d399", bg: "#063826" },
+    Struct: { fill: "#0f172a", stroke: "#10b981", text: "#f8fafc", badge: "#34d399", bg: "#063826" },
+    Interface: { fill: "#0f172a", stroke: "#818cf8", text: "#f8fafc", badge: "#a5b4fc", bg: "#1f1f4e" },
+    Trait: { fill: "#0f172a", stroke: "#818cf8", text: "#f8fafc", badge: "#a5b4fc", bg: "#1f1f4e" },
+    Type: { fill: "#0f172a", stroke: "#818cf8", text: "#f8fafc", badge: "#a5b4fc", bg: "#1f1f4e" },
+    Function: { fill: "#0f172a", stroke: "#f59e0b", text: "#f8fafc", badge: "#fbbf24", bg: "#3d2204" },
+    Method: { fill: "#0f172a", stroke: "#f59e0b", text: "#f8fafc", badge: "#fbbf24", bg: "#3d2204" },
+    Document: { fill: "#0f172a", stroke: "#60a5fa", text: "#f8fafc", badge: "#93c5fd", bg: "#112a4d" },
+    DocumentChunk: { fill: "#0f172a", stroke: "#60a5fa", text: "#f8fafc", badge: "#93c5fd", bg: "#112a4d" },
+    Documentation: { fill: "#0f172a", stroke: "#60a5fa", text: "#f8fafc", badge: "#93c5fd", bg: "#112a4d" },
+    Spec: { fill: "#0f172a", stroke: "#60a5fa", text: "#f8fafc", badge: "#93c5fd", bg: "#112a4d" },
+    TextSummary: { fill: "#0f172a", stroke: "#60a5fa", text: "#f8fafc", badge: "#93c5fd", bg: "#112a4d" },
+    Entity: { fill: "#0f172a", stroke: "#a8a29e", text: "#f8fafc", badge: "#a8a29e", bg: "#292524" },
+    default: { fill: "#0f172a", stroke: "#64748b", text: "#f8fafc", badge: "#cbd5e1", bg: "#1e293b" },
   },
   links: {
-    default: "#64748b",
-    calls: "#60a5fa",
-    imports: "#818cf8",
-    extends: "#a78bfa",
-    spoke: "rgba(56, 189, 248, 0.4)",
+    default: "#334155",
+    calls: "#475569",
+    imports: "#475569",
+    extends: "#475569",
+    spoke: "rgba(100, 116, 139, 0.35)",
     upstreamActive: "#38bdf8",   // Dependencies (imported by this node)
     downstreamActive: "#fbbf24", // Consumers (imports this node)
     activeUpstream: "#38bdf8",
@@ -795,21 +795,21 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       defs.append("marker")
         .attr("id", id)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 8)
+        .attr("refX", 7)
         .attr("refY", 0)
-        .attr("markerWidth", 6.5)
-        .attr("markerHeight", 6.5)
+        .attr("markerWidth", 5)
+        .attr("markerHeight", 5)
         .attr("orient", "auto")
         .append("path")
-        .attr("d", "M0,-4.5L9,0L0,4.5")
+        .attr("d", "M0,-3.5L7,0L0,3.5")
         .attr("fill", color)
     }
 
-    createMarker("arrow-default", PALETTE.links.default)
-    createMarker("arrow-calls", PALETTE.links.calls)
-    createMarker("arrow-imports", PALETTE.links.imports)
-    createMarker("arrow-upstream", PALETTE.links.upstreamActive)
-    createMarker("arrow-downstream", PALETTE.links.downstreamActive)
+    createMarker("arrow-default", "#475569")
+    createMarker("arrow-calls", "#60a5fa")
+    createMarker("arrow-imports", "#818cf8")
+    createMarker("arrow-upstream", "#38bdf8")
+    createMarker("arrow-downstream", "#fbbf24")
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.15, 3.5])
@@ -982,75 +982,62 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     // Render 5 Architectural Tiers (0 to 4)
     ARCH_TIERS.forEach(tDef => {
       const y = tierYMap[tDef.tier]
-      const tHeight = tierHeights[tDef.tier] + 52
 
-      // Subtle horizontal divider line
+      // Subtle horizontal divider guideline (quiet, minimalist)
       tierGroup.append("line")
         .attr("x1", minX)
         .attr("y1", y - 48)
         .attr("x2", codeMaxX)
         .attr("y2", y - 48)
-        .attr("stroke", "rgba(100, 116, 139, 0.45)")
-        .attr("stroke-dasharray", "6, 6")
-        .attr("pointer-events", "none")
-
-      // Subtle background tier band accommodating expanded child symbols
-      tierGroup.append("rect")
-        .attr("x", minX)
-        .attr("y", y - 48)
-        .attr("width", codeMaxX - minX)
-        .attr("height", tHeight)
-        .attr("rx", 12)
-        .attr("fill", tDef.fillColor)
-        .attr("stroke", tDef.borderColor)
+        .attr("stroke", "#1e293b")
         .attr("stroke-width", 1)
-        .attr("stroke-opacity", 0.35)
+        .attr("stroke-dasharray", "4, 4")
         .attr("pointer-events", "none")
 
-      // Left-pinned Tier Pill Badge
+      // Left-pinned Tier Pill Badge (flat, minimalist)
       tierGroup.append("rect")
         .attr("x", minX + 16)
         .attr("y", y - 36)
-        .attr("width", 78)
+        .attr("width", 54)
         .attr("height", 20)
-        .attr("rx", 10)
-        .attr("fill", tDef.fillColor)
-        .attr("stroke", tDef.borderColor)
-        .attr("stroke-width", 1.2)
+        .attr("rx", 4)
+        .attr("fill", "#0f172a")
+        .attr("stroke", "#334155")
+        .attr("stroke-width", 1)
         .attr("pointer-events", "none")
 
       tierGroup.append("text")
-        .attr("x", minX + 55)
+        .attr("x", minX + 43)
         .attr("y", y - 22)
         .attr("text-anchor", "middle")
         .attr("fill", tDef.badgeColor)
         .attr("font-size", 9.5)
-        .attr("font-family", FONT_SANS)
-        .style("font-family", FONT_SANS)
-        .attr("font-weight", "800")
-        .attr("letter-spacing", "0.08em")
+        .attr("font-family", FONT_MONO)
+        .style("font-family", FONT_MONO)
+        .attr("font-weight", "700")
+        .attr("letter-spacing", "0.06em")
         .attr("pointer-events", "none")
-        .text(`TIER ${tDef.tier}`)
+        .text(`T${tDef.tier}`)
 
       // Left-pinned Tier Header Title
       tierGroup.append("text")
-        .attr("x", minX + 106)
+        .attr("x", minX + 80)
         .attr("y", y - 22)
-        .attr("fill", "#ffffff")
-        .attr("font-size", 13.5)
+        .attr("fill", "#f8fafc")
+        .attr("font-size", 12)
         .attr("font-family", FONT_SANS)
         .style("font-family", FONT_SANS)
-        .attr("font-weight", "700")
-        .attr("letter-spacing", "0.02em")
+        .attr("font-weight", "600")
+        .attr("letter-spacing", "0.04em")
         .attr("pointer-events", "none")
-        .text(tDef.label)
+        .text(tDef.label.toUpperCase())
 
       // Left-pinned Tier Subtitle
       tierGroup.append("text")
-        .attr("x", minX + 106)
+        .attr("x", minX + 80)
         .attr("y", y - 7)
-        .attr("fill", "#94a3b8")
-        .attr("font-size", 10)
+        .attr("fill", "#64748b")
+        .attr("font-size", 9.5)
         .attr("font-family", FONT_SANS)
         .style("font-family", FONT_SANS)
         .attr("font-weight", "400")
@@ -1062,24 +1049,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     if (utilityNodes.length > 0) {
       const maxY = tierYMap[4] + tierHeights[4] + 40
       tierGroup.append("line")
-        .attr("x1", utilityColumnX - 45)
+        .attr("x1", utilityColumnX - 35)
         .attr("y1", TOP_TIER_Y - 48)
-        .attr("x2", utilityColumnX - 45)
+        .attr("x2", utilityColumnX - 35)
         .attr("y2", maxY)
-        .attr("stroke", "rgba(148, 163, 184, 0.4)")
-        .attr("stroke-dasharray", "4, 4")
-        .attr("pointer-events", "none")
-
-      tierGroup.append("rect")
-        .attr("x", utilityColumnX - 35)
-        .attr("y", TOP_TIER_Y - 48)
-        .attr("width", 210)
-        .attr("height", Math.max(160, utilityNodes.length * 80 + 40))
-        .attr("rx", 12)
-        .attr("fill", UTILITY_TIER_INFO.fillColor)
-        .attr("stroke", UTILITY_TIER_INFO.borderColor)
-        .attr("stroke-width", 1)
-        .attr("stroke-opacity", 0.4)
+        .attr("stroke", "#1e293b")
         .attr("stroke-dasharray", "4, 4")
         .attr("pointer-events", "none")
 
@@ -1087,12 +1061,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         .attr("x", utilityColumnX + 70)
         .attr("y", TOP_TIER_Y - 24)
         .attr("text-anchor", "middle")
-        .attr("fill", "#e2e8f0")
-        .attr("font-size", 11)
+        .attr("fill", "#94a3b8")
+        .attr("font-size", 10.5)
         .attr("font-family", FONT_SANS)
         .style("font-family", FONT_SANS)
-        .attr("font-weight", "700")
-        .attr("letter-spacing", "0.06em")
+        .attr("font-weight", "600")
+        .attr("letter-spacing", "0.08em")
         .attr("pointer-events", "none")
         .text("✦ UTILITY & DOCS")
     }
@@ -1108,25 +1082,22 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("class", "edge-path")
       .attr("fill", "none")
       .attr("stroke", (d) => {
-        if (d.isSpoke) return "rgba(56, 189, 248, 0.45)"
-        if (d.isIntraSatellite) return "rgba(148, 163, 184, 0.35)"
-        if (d.relation.includes("IMPORTS")) return PALETTE.links.imports
-        if (d.relation.includes("CALLS")) return PALETTE.links.calls
-        return PALETTE.links.default
+        if (d.isSpoke) return "rgba(100, 116, 139, 0.35)"
+        if (d.isIntraSatellite) return "rgba(71, 85, 105, 0.25)"
+        return "#334155"
       })
       .attr("stroke-dasharray", (d) => {
-        if (d.isSpoke) return "2, 3"
-        if (d.relation.includes("IMPORTS")) return "4, 3"
+        if (d.isSpoke) return "2, 2"
         return "none"
       })
       .attr("marker-end", (d) => d.isSpoke ? "none" : "url(#arrow-default)")
       .attr("stroke-width", (d) => {
-        if (d.isSpoke) return 1.5
-        if (d.isIntraSatellite) return 1.2
-        if (d.isHighway) return Math.max(2.4, Math.min(5.5, Math.sqrt(d.weight || 1) * 2.4))
-        return Math.max(1.8, Math.min(4, (d.weight || 1) * 2))
+        if (d.isSpoke) return 1
+        if (d.isIntraSatellite) return 1
+        if (d.isHighway) return 1.5
+        return 1.2
       })
-      .attr("stroke-opacity", (d) => d.isSpoke ? 0.85 : 0.85)
+      .attr("stroke-opacity", 0.65)
 
     // Link Labels (coupling weight / relation)
     const linkLabelGroup = g.append("g").attr("class", "link-labels")
@@ -1177,9 +1148,9 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         }
       })
 
-    // ARCHITECTURAL FILE CARD
-    const CARD_W = 168
-    const CARD_H = 50
+    // ARCHITECTURAL FILE CARD (Minimalist, Crisp Developer Matte Card)
+    const CARD_W = 176
+    const CARD_H = 46
 
     const hubGroup = nodeGroup.filter((d) => Boolean(d.isHub))
 
@@ -1189,54 +1160,21 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("y", -CARD_H / 2)
       .attr("width", CARD_W)
       .attr("height", CARD_H)
-      .attr("rx", 9)
-      .attr("ry", 9)
-      .attr("fill", PALETTE.fileCard.fill)
-      .attr("stroke", (d) => {
-        if (d.properties?.is_god_node || (d as any).is_god_node) return "#38bdf8"
-        const tInfo = getTierInfo(d.tier)
-        return tInfo.borderColor
-      })
-      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.5)
-      .style("filter", (d) => (d.properties?.is_god_node || (d as any).is_god_node)
-        ? "drop-shadow(0 0 16px rgba(56, 189, 248, 0.55)) drop-shadow(0 6px 18px rgba(0, 0, 0, 0.7))"
-        : "drop-shadow(0 6px 18px rgba(0, 0, 0, 0.7))")
+      .attr("rx", 6)
+      .attr("ry", 6)
+      .attr("fill", "#0f172a")
+      .attr("stroke", "#334155")
+      .attr("stroke-width", 1)
 
     // Left tier accent strip
     hubGroup.append("rect")
       .attr("class", "arch-card-accent")
       .attr("x", -CARD_W / 2)
       .attr("y", -CARD_H / 2 + 7)
-      .attr("width", 3.5)
+      .attr("width", 3)
       .attr("height", CARD_H - 14)
-      .attr("rx", 1.75)
+      .attr("rx", 1.5)
       .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
-      .attr("pointer-events", "none")
-
-    // Tier indicator tag on card
-    const tierPill = hubGroup.append("g")
-      .attr("class", "arch-tier-pill")
-      .attr("transform", `translate(${-CARD_W / 2 + 10}, ${-CARD_H / 2 + 7})`)
-
-    tierPill.append("rect")
-      .attr("width", 26)
-      .attr("height", 14)
-      .attr("rx", 7)
-      .attr("fill", (d) => getTierInfo(d.tier).badgeColor + "22")
-      .attr("stroke", (d) => getTierInfo(d.tier).borderColor)
-      .attr("stroke-width", 1)
-
-    tierPill.append("text")
-      .text((d) => d.tier === -1 ? "UTIL" : `T${d.tier}`)
-      .attr("x", 13)
-      .attr("y", 10.5)
-      .attr("text-anchor", "middle")
-      .attr("fill", (d) => getTierInfo(d.tier).badgeColor)
-      .attr("font-size", 8)
-      .attr("font-weight", "800")
-      .attr("font-family", FONT_SANS)
-      .style("font-family", FONT_SANS)
-      .attr("letter-spacing", "0.05em")
       .attr("pointer-events", "none")
 
     // Module Directory Subtitle
@@ -1245,12 +1183,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .text((d) => {
         if (!d.moduleGroup || d.moduleGroup === "root") return ""
         const grp = d.moduleGroup
-        return grp.length > 14 ? "…" + grp.slice(-13) + "/" : `${grp}/`
+        return grp.length > 16 ? "…" + grp.slice(-15) + "/" : `${grp}/`
       })
-      .attr("x", -CARD_W / 2 + 42)
-      .attr("y", -CARD_H / 2 + 17)
-      .attr("fill", "#94a3b8")
-      .attr("font-size", 9.5)
+      .attr("x", -CARD_W / 2 + 12)
+      .attr("y", -CARD_H / 2 + 15)
+      .attr("fill", "#64748b")
+      .attr("font-size", 9)
       .attr("font-weight", "500")
       .attr("font-family", FONT_MONO)
       .style("font-family", FONT_MONO)
@@ -1261,13 +1199,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("class", "arch-filename")
       .text((d) => {
         const name = d.label
-        return name.length > 15 ? name.slice(0, 13) + "…" : name
+        return name.length > 16 ? name.slice(0, 14) + "…" : name
       })
-      .attr("x", -CARD_W / 2 + 10)
-      .attr("y", -CARD_H / 2 + 36)
-      .attr("fill", "#ffffff")
+      .attr("x", -CARD_W / 2 + 12)
+      .attr("y", -CARD_H / 2 + 32)
+      .attr("fill", "#f8fafc")
       .attr("font-size", 11.5)
-      .attr("font-weight", "700")
+      .attr("font-weight", "600")
       .attr("font-family", FONT_MONO)
       .style("font-family", FONT_MONO)
       .attr("pointer-events", "none")
@@ -1275,7 +1213,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     // Interactive Child Symbols Expand/Collapse Badge
     const badge = hubGroup.append("g")
       .attr("class", "hub-satellites-badge")
-      .attr("transform", `translate(${CARD_W / 2 - 42}, ${-CARD_H / 2 + 15})`)
+      .attr("transform", `translate(${CARD_W / 2 - 38}, ${-CARD_H / 2 + 13})`)
       .attr("cursor", "pointer")
       .on("click", (event, d) => {
         event.stopPropagation()
@@ -1283,12 +1221,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       })
 
     badge.append("rect")
-      .attr("width", 34)
+      .attr("width", 28)
       .attr("height", 20)
-      .attr("rx", 10)
-      .attr("fill", (d) => expandedHubIds.has(d.id) ? "rgba(56, 189, 248, 0.3)" : "rgba(56, 189, 248, 0.12)")
-      .attr("stroke", (d) => expandedHubIds.has(d.id) ? "#38bdf8" : "rgba(56, 189, 248, 0.5)")
-      .attr("stroke-width", 1.2)
+      .attr("rx", 4)
+      .attr("fill", "#1e293b")
+      .attr("stroke", "#334155")
+      .attr("stroke-width", 1)
 
     badge.append("text")
       .text((d) => {
@@ -1296,12 +1234,12 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         const count = d.symbolCount || d.properties?.symbolCount || 1
         return `${isExp ? "−" : "+"} ${count}`
       })
-      .attr("x", 17)
+      .attr("x", 14)
       .attr("y", 13.5)
       .attr("text-anchor", "middle")
-      .attr("fill", (d) => expandedHubIds.has(d.id) ? "#ffffff" : "#38bdf8")
-      .attr("font-size", 9.5)
-      .attr("font-weight", "bold")
+      .attr("fill", "#94a3b8")
+      .attr("font-size", 9)
+      .attr("font-weight", "600")
       .attr("font-family", FONT_MONO)
       .style("font-family", FONT_MONO)
       .attr("pointer-events", "none")
@@ -1309,23 +1247,11 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     // SATELLITE SUB-GRID SYMBOLS
     const satGroup = nodeGroup.filter((d) => Boolean(d.isSatellite))
 
-    satGroup.filter((d) => Boolean(d.properties?.is_god_node || (d as any).is_god_node))
-      .append("circle")
-      .attr("class", "god-halo")
-      .attr("r", (d) => getNodeRadius(d.type, d) + 5)
-      .attr("fill", "none")
-      .attr("stroke", "#38bdf8")
-      .attr("stroke-width", 2)
-      .attr("stroke-dasharray", "3, 3")
-      .style("filter", "drop-shadow(0 0 8px #38bdf8)")
-      .attr("pointer-events", "none")
-
     satGroup.append("circle")
       .attr("r", (d) => getNodeRadius(d.type, d))
-      .attr("fill", (d) => getNodeStyle(d.type).bg)
-      .attr("stroke", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? "#38bdf8" : getNodeStyle(d.type).stroke)
-      .attr("stroke-width", (d) => (d.properties?.is_god_node || (d as any).is_god_node) ? 2.5 : 1.8)
-      .style("filter", (d) => `drop-shadow(0 0 8px ${getNodeStyle(d.type).stroke}60)`)
+      .attr("fill", "#0f172a")
+      .attr("stroke", (d) => getNodeStyle(d.type).stroke)
+      .attr("stroke-width", 1.2)
 
     satGroup.append("text")
       .attr("class", "node-glyph")
@@ -1333,10 +1259,10 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
       .attr("fill", (d) => getNodeStyle(d.type).badge)
-      .attr("font-size", 10.5)
+      .attr("font-size", 10)
       .attr("font-family", FONT_MONO)
       .style("font-family", FONT_MONO)
-      .attr("font-weight", "800")
+      .attr("font-weight", "700")
       .attr("pointer-events", "none")
 
     satGroup.append("text")
@@ -1543,19 +1469,23 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     const downstreamIds = new Set<string>()
     const activeLinkKeys = new Set<string>()
 
-    if (selectedNodeId) {
-      const selectedIsHub = Boolean((detailNode as any)?.isHub || detailNode?.type === "CodeFile" || detailNode?.type === "Module")
+    const focusId = selectedNodeId || hoveredNodeId
+    const hasFocus = Boolean(focusId)
 
-      if (selectedIsHub) {
+    if (focusId) {
+      const focusNode = activeNodeLookup.get(focusId) || rawNodes.find(n => n.id === focusId)
+      const focusIsHub = Boolean((focusNode as any)?.isHub || focusNode?.type === "CodeFile" || focusNode?.type === "Module")
+
+      if (focusIsHub) {
         displayEdges.forEach((e) => {
           const s = typeof e.source === "object" ? (e.source as any).id : e.source
           const t = typeof e.target === "object" ? (e.target as any).id : e.target
 
-          if (s === selectedNodeId) {
+          if (s === focusId) {
             upstreamIds.add(t)
             activeLinkKeys.add(`${s}-->${t}`)
           }
-          if (t === selectedNodeId) {
+          if (t === focusId) {
             downstreamIds.add(s)
             activeLinkKeys.add(`${s}-->${t}`)
           }
@@ -1564,17 +1494,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
         displayEdges.forEach((e) => {
           const s = typeof e.source === "object" ? (e.source as any).id : e.source
           const t = typeof e.target === "object" ? (e.target as any).id : e.target
-          if (s === selectedNodeId) upstreamIds.add(t)
-          if (t === selectedNodeId) downstreamIds.add(s)
+          if (s === focusId) upstreamIds.add(t)
+          if (t === focusId) downstreamIds.add(s)
         })
 
         rawEdges.forEach((e) => {
-          if (e.source === selectedNodeId) {
+          if (e.source === focusId) {
             upstreamIds.add(e.target)
             const tNode = rawNodes.find(n => n.id === e.target)
             if (tNode) upstreamIds.add(getParentFileId(tNode))
           }
-          if (e.target === selectedNodeId) {
+          if (e.target === focusId) {
             downstreamIds.add(e.source)
             const sNode = rawNodes.find(n => n.id === e.source)
             if (sNode) downstreamIds.add(getParentFileId(sNode))
@@ -1583,8 +1513,6 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       }
     }
 
-    const hasFocus = Boolean(selectedNodeId)
-
     // Update Node Highlighting & Opacity
     svg.selectAll<SVGGElement, SimNode>("g.nodes g").each(function(d: any) {
       if (!d || !d.label) return
@@ -1592,16 +1520,16 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const matchesSearch = !q || (d.label as string).toLowerCase().includes(q) || (d.moduleGroup && d.moduleGroup.toLowerCase().includes(q))
       const matchesType = !hiddenTypes.has(d.type)
 
-      const isSelected = d.id === selectedNodeId
+      const isFocused = d.id === focusId
       const isUpstream = upstreamIds.has(d.id)
       const isDownstream = downstreamIds.has(d.id)
-      const isRelevant = isSelected || isUpstream || isDownstream
+      const isRelevant = isFocused || isUpstream || isDownstream
 
       let opacity = 1.0
       if (!matchesSearch || !matchesType) {
         opacity = 0.05
       } else if (hasFocus) {
-        opacity = isRelevant ? 1.0 : 0.12
+        opacity = isRelevant ? 1.0 : 0.15
       }
 
       group.style("opacity", String(opacity))
@@ -1609,51 +1537,49 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
 
       if (d.isHub) {
         const card = group.select<SVGRectElement>("rect.arch-card")
-        if (isSelected) {
+        if (isFocused) {
           card
-            .attr("stroke", "#ffffff")
-            .attr("stroke-width", 2.5)
-            .style("filter", "drop-shadow(0 0 16px rgba(56, 189, 248, 0.6)) drop-shadow(0 0 4px #ffffff)")
+            .attr("stroke", "#38bdf8")
+            .attr("stroke-width", 1.8)
+            .style("filter", "none")
         } else if (isUpstream) {
           card
-            .attr("stroke", PALETTE.links.activeUpstream)
-            .attr("stroke-width", 2)
-            .style("filter", "drop-shadow(0 0 12px rgba(56, 189, 248, 0.45))")
+            .attr("stroke", "#38bdf8")
+            .attr("stroke-width", 1.5)
+            .style("filter", "none")
         } else if (isDownstream) {
           card
-            .attr("stroke", PALETTE.links.activeDownstream)
-            .attr("stroke-width", 2)
-            .style("filter", "drop-shadow(0 0 12px rgba(251, 191, 36, 0.45))")
+            .attr("stroke", "#fbbf24")
+            .attr("stroke-width", 1.5)
+            .style("filter", "none")
         } else {
           card
-            .attr("stroke", (d.properties?.is_god_node || d.is_god_node) ? "#38bdf8" : getTierInfo(d.tier).borderColor)
-            .attr("stroke-width", (d.properties?.is_god_node || d.is_god_node) ? 2 : 1.5)
-            .style("filter", (d.properties?.is_god_node || d.is_god_node)
-              ? "drop-shadow(0 0 12px rgba(56, 189, 248, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))"
-              : "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45))")
+            .attr("stroke", "#334155")
+            .attr("stroke-width", 1)
+            .style("filter", "none")
         }
       } else {
         const circle = group.select<SVGCircleElement>("circle")
-        if (isSelected) {
+        if (isFocused) {
           circle
-            .attr("stroke", "#ffffff")
-            .attr("stroke-width", 3.5)
-            .style("filter", `drop-shadow(0 0 16px ${getNodeStyle(d.type).stroke}) drop-shadow(0 0 4px #ffffff)`)
+            .attr("stroke", "#38bdf8")
+            .attr("stroke-width", 2)
+            .style("filter", "none")
         } else if (isUpstream) {
           circle
-            .attr("stroke", PALETTE.links.activeUpstream)
-            .attr("stroke-width", 2.5)
-            .style("filter", `drop-shadow(0 0 10px ${PALETTE.links.activeUpstream}80)`)
+            .attr("stroke", "#38bdf8")
+            .attr("stroke-width", 1.8)
+            .style("filter", "none")
         } else if (isDownstream) {
           circle
-            .attr("stroke", PALETTE.links.activeDownstream)
-            .attr("stroke-width", 2.5)
-            .style("filter", `drop-shadow(0 0 10px ${PALETTE.links.activeDownstream}80)`)
+            .attr("stroke", "#fbbf24")
+            .attr("stroke-width", 1.8)
+            .style("filter", "none")
         } else {
           circle
             .attr("stroke", getNodeStyle(d.type).stroke)
-            .attr("stroke-width", 1.8)
-            .style("filter", `drop-shadow(0 0 6px ${getNodeStyle(d.type).stroke}40)`)
+            .attr("stroke-width", 1.2)
+            .style("filter", "none")
         }
       }
     })
@@ -1666,16 +1592,17 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       const sType = typeof d.source === "object" ? d.source.type : ""
       const tType = typeof d.target === "object" ? d.target.type : ""
 
-      const isOutboundFromFocus = sId === selectedNodeId
-      const isInboundToFocus = tId === selectedNodeId
+      const isOutboundFromFocus = sId === focusId
+      const isInboundToFocus = tId === focusId
 
       const sLabel = typeof d.source === "object" ? (d.source.label || d.source.id || "") : (activeNodeLookup.get(d.source)?.label || String(d.source || ""))
       const tLabel = typeof d.target === "object" ? (d.target.label || d.target.id || "") : (activeNodeLookup.get(d.target)?.label || String(d.target || ""))
       const matchesSearch = !q || sLabel.toLowerCase().includes(q) || tLabel.toLowerCase().includes(q)
       const matchesType = !hiddenTypes.has(sType) && !hiddenTypes.has(tType)
 
-      let linkOpacity = d.isSpoke ? 0.85 : 0.85
-      let strokeColor = d.isSpoke ? "rgba(56, 189, 248, 0.45)" : (d.isIntraSatellite ? "rgba(148, 163, 184, 0.35)" : PALETTE.links.default)
+      let linkOpacity = 0.65
+      let strokeColor = "#334155"
+      let strokeWidth = d.isHighway ? 1.5 : 1.2
       let markerEnd = d.isSpoke ? "none" : "url(#arrow-default)"
 
       if (!matchesSearch || !matchesType) {
@@ -1683,23 +1610,23 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       } else if (hasFocus) {
         if (isOutboundFromFocus) {
           linkOpacity = 1.0
-          strokeColor = PALETTE.links.activeUpstream
+          strokeColor = "#38bdf8"
+          strokeWidth = 1.8
           markerEnd = d.isSpoke ? "none" : "url(#arrow-upstream)"
         } else if (isInboundToFocus) {
           linkOpacity = 1.0
-          strokeColor = PALETTE.links.activeDownstream
+          strokeColor = "#fbbf24"
+          strokeWidth = 1.8
           markerEnd = d.isSpoke ? "none" : "url(#arrow-downstream)"
         } else {
-          linkOpacity = 0.05
+          linkOpacity = 0.08
         }
-      } else {
-        if (d.relation.includes("IMPORTS")) strokeColor = PALETTE.links.imports
-        else if (d.relation.includes("CALLS")) strokeColor = PALETTE.links.calls
       }
 
       d3.select(this)
         .style("opacity", String(linkOpacity))
         .attr("stroke", strokeColor)
+        .attr("stroke-width", strokeWidth)
         .attr("marker-end", markerEnd)
     })
 
@@ -1708,7 +1635,7 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
       if (!d || !d.source || !d.target) return
       const sId = typeof d.source === "object" ? d.source.id : d.source
       const tId = typeof d.target === "object" ? d.target.id : d.target
-      const isConnected = sId === selectedNodeId || tId === selectedNodeId
+      const isConnected = sId === focusId || tId === focusId
 
       let labelOpacity = 0.0
       if (hasFocus) {
@@ -1726,15 +1653,13 @@ export default function KnowledgeGraph({ projectName }: { projectName: string })
     // Update Semantic LOD Label Visibility
     svg.selectAll<SVGTextElement, SimNode>("g.nodes text.node-label").style("opacity", function(d: any) {
       if (!d) return "0"
-      const isGod = Boolean(d.properties?.is_god_node || d.is_god_node || (d.properties?.degree || 0) >= 12)
-      const isSelected = d.id === selectedNodeId
-      const isHovered = d.id === hoveredNodeId
+      const isFocused = d.id === focusId
       const isUpstream = upstreamIds.has(d.id)
       const isDownstream = downstreamIds.has(d.id)
       const matchesSearch = Boolean(q && d.label?.toLowerCase().includes(q))
       const isZoomed = zoomScaleRef.current >= 1.2
 
-      if (isGod || isSelected || isHovered || isUpstream || isDownstream || matchesSearch || isZoomed) {
+      if (isFocused || isUpstream || isDownstream || matchesSearch || isZoomed) {
         return "1"
       }
       return "0"
