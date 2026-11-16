@@ -38,3 +38,6 @@ benchmarks/
 **/graphify-out/
 
 .logs/
+
+# Interview Preparation
+INTERVIEW_PREP.md

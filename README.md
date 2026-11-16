@@ -4,175 +4,204 @@
 
 ### *Deterministic AST Code-Graph & Cross-Doc Knowledge Engine for Multi-Modal Developer Assistance*
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js 16](https://img.shields.io/badge/Next.js%2016-App%20Router-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Cognee](https://img.shields.io/badge/Cognee-Knowledge%20Graph-7C3AED?style=for-the-badge)](https://cognee.ai)
 [![D3.js](https://img.shields.io/badge/D3.js-Force%20Simulation-F9A03C?style=for-the-badge&logo=d3.js&logoColor=white)](https://d3js.org)
-[![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension%20Ready-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
+<br />
+
 <p align="center">
-  <strong>Fuses codebase AST syntax trees, API documentation, PDFs, and web wikis into a unified, queryable Knowledge Graph.</strong>
+  <strong>DevDoc unifies codebase Abstract Syntax Trees (AST), API specifications, architectural PDFs, and live web wikis into a queryable, topologically aware Knowledge Graph.</strong>
   <br />
-  Enables multi-hop code reasoning, citation-backed technical Q&A, real-time D3 force-directed topological exploration, surgical memory pruning, and native dual-client workflows.
+  Move beyond flat vector search. Reason across physical call hierarchies, eliminate context rot with active memory pruning, and explore your architecture with an interactive D3 force visualizer.
 </p>
 
-```
-🏷️ Tags: #graph-rag #knowledge-graph #ast-parser #cognee #code-intelligence #fastapi #nextjs-16 #typescript #d3js #vscode-extension #multi-modal-rag #developer-tools
-```
-
-[Explore Architecture](#-system-architecture) •
-[Why Graph RAG?](#-why-devdoc-graph-rag-vs-naive-vector-rag) •
-[Key Features](#-core-capabilities) •
-[Quick Start](#-quick-start) •
-[API Reference](#-backend-api-reference) •
-[Design System](docs/FRONTEND_DESIGN_SPEC.md)
+[⚡ Overview](#-overview) •
+[💡 Why Graph RAG?](#-why-devdoc-graph-rag-vs-naive-vector-rag) •
+[✨ Core Capabilities](#-core-capabilities) •
+[🏛️ System Architecture](#-system-architecture) •
+[🖼️ UI Gallery](#-ui-walkthrough--gallery) •
+[🚀 Quick Start](#-quick-start) •
+[📡 API Reference](#-backend-api-reference)
 
 ---
 
 </div>
 
-## 📌 Executive Summary
+## ⚡ Overview
 
-Modern AI coding assistants (such as Cursor or GitHub Copilot) rely primarily on **Naive Chunk-based Vector RAG** or ephemeral workspace window buffers. When projects grow across hundreds of files, deep inheritance trees, and external documentation (PDFs, API specifications, and architectural wikis), flat vector chunking loses execution semantics and multi-hop dependencies.
+Modern AI coding assistants (e.g., Cursor, GitHub Copilot) excel at localized tab completions, but struggle when reasoning across sprawling codebases, cross-module dependencies, and external documentation. When code is sliced into **arbitrary 500-token text chunks**, physical execution semantics, caller-callee chains, and architectural relationships are permanently lost.
 
-**DevDoc** bridges this architectural gap by extracting a **deterministic Abstract Syntax Tree (AST) Knowledge Graph** from source code and unifying it with parsed multi-source documentation (PDFs, Markdown, Web URLs) inside **Cognee Graph Memory**. It delivers:
-- **Topological AST Code Awareness**: Preserves physical execution edges `(FunctionA)-[:CALLS]->(FunctionB)` and `(Class)-[:IMPLEMENTS]->(Interface)`.
-- **Heterogeneous Semantic Fusion**: Links function references in documentation directly to AST implementation nodes.
-- **Explainable Knowledge Retrieval**: Visualizes exact reasoning paths via an interactive D3 force-directed visualizer.
-- **Dual-Client Ecosystem**: Seamlessly queryable via a Next.js 16 glassmorphic dashboard and a native VS Code WebView extension.
+**DevDoc** solves this by generating a **deterministic Abstract Syntax Tree (AST) Knowledge Graph** from your source code and fusing it with external documentation (PDFs, Markdown, Web URLs) inside **Cognee Graph Memory**.
+
+```
+Traditional RAG:  Code / Docs  ───> Arbitrary 500-Token Chunks  ───> Flat Vector DB  ───> Blind Keyword Matches
+DevDoc Graph RAG: Source AST   ───┐
+                  PDFs / Docs  ───┼─> Cognee Knowledge Graph    ───> Topological RAG ───> Multi-Hop Reasoning with
+                  Web / Wikis  ───┘   (Classes, Calls, Specs)                             Exact Code Citations
+```
+
+### Key Highlights
+- **Deterministic AST Code Intelligence**: Maps physical relationships like `(FunctionA)-[:CALLS]->(FunctionB)` and `(Class)-[:IMPLEMENTS]->(Interface)` across 20+ programming languages.
+- **Heterogeneous Semantic Fusion**: Explicitly links API definitions in documentation (e.g. PDF user guides, OpenAPI specs) directly to the underlying code symbols.
+- **Explainable Topological Retrieval**: Every answer includes clickable file-and-line citations, backed by a real-time D3 force-directed visualizer.
+- **Active Memory Hygiene**: Built-in `/forget` and `/improve` endpoints surgically remove obsolete code and reinforce retrieval quality over time.
+- **Modern Developer Experience**: Interact through a high-performance, glassmorphic Next.js 16 dashboard with syntax highlighting, live citations, and real-time graph exploration.
+- **100% Privacy & Zero Lock-in**: Run completely offline with local Ollama + FastEmbed, or connect cloud LLMs (Groq, Gemini, OpenAI) with zero configuration friction.
 
 ---
 
 ## 💡 Why DevDoc? (Graph RAG vs. Naive Vector RAG)
 
-| Dimension | GitHub Copilot / Cursor | DevDoc Knowledge Engine |
+| Evaluation Dimension | Traditional Vector RAG (Cursor / Copilot) | DevDoc AST Knowledge Engine |
 | :--- | :--- | :--- |
-| **Primary Data Source** | Active editor buffers, open tabs, and local workspace code files. | **Unified Heterogeneous Graph:** Combines external web docs, PDFs, API specs, and AST code trees into one memory model. |
-| **Indexing Method** | **Vector Chunking (Naive RAG)** or Merkle-tree file hashing. Breaks code into arbitrary text chunks by line counts. | **Deterministic AST Knowledge Graph:** Parses code into semantic nodes (`Class`, `Function`, `Import`, `Caller`) with topological relationship edges. |
-| **Cross-Doc Linking** | Weak / Ephemeral. Requires manual `@Web` lookups or pasting URLs into chat per prompt. | **Permanent Semantic Linking:** Mentions of functions/APIs in `.pdf` guides or `.md` specs are explicitly linked to physical AST nodes. |
-| **Data Scope & Scope Isolation** | Scoped strictly to the currently open workspace window. | **Multi-Project Dataset Scoping:** Persistent, project-isolated knowledge base that survives across sessions, environments, and team members. |
-| **Auditability & Explainability** | Black-box retrieval (cannot inspect *why* a chunk was retrieved). | **Interactive D3 Force Visualizer:** Real-time force-directed topology inspection showing exact graph traversal paths and node metrics. |
-| **Memory Lifecycle** | Ephemeral context window; no pruning mechanism for outdated docs. | **Active Memory Management:** Built-in `forget` and `improve` APIs to prune stale knowledge and calibrate retrieval with reinforcement feedback. |
-
-### The Core Architectural Problem DevDoc Solves
-
-```
-[ Traditional Naive RAG ]
-Source Code / Docs ───> Arbitrary 500-token chunks ───> Vector DB ───> Flat Cosine Search
-❌ Loses caller/callee execution chains
-❌ Fails multi-hop reasoning (e.g., "Where is the auth handler used across all microservices?")
-❌ Disconnects external architectural PDFs from actual implementations
-
-[ DevDoc Graph RAG ]
-Source Code ───> AST Parser ───┐
-PDFs / Specs ──> Doc Parser ───┼───> Cognee Knowledge Graph ───> Topological Graph Retrieval
-Web URLs ──────> HTML Scraper ──┘     (Classes, Functions, Calls, Docs)    + Exact Line Attributions
-```
-
----
-
-## 🏛️ System Architecture
-
-DevDoc is engineered as a decoupled, client-agnostic monorepo with clean separation of concerns:
-
-```text
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                                 CLIENT SURFACES                                  │
-├────────────────────────────────────────┬─────────────────────────────────────────┤
-│    Next.js 16 Web Dashboard            │       VS Code Native Extension          │
-│    • Glassmorphic SPA (Tailwind + Framer)│       • WebView Chat & Quick Query      │
-│    • D3 Force-Directed Graph Explorer  │       • Right-Click AST Context Action  │
-│    • Ingestion Dropper & Memory Studio │       • Localhost Backend Bridge        │
-└───────────────────┬────────────────────┴────────────────────┬────────────────────┘
-                    │                                         │
-                    ▼                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                         FASTAPI BACKEND CORE (:8000)                             │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│  • REST API Gateway & Next.js Proxy Forwarder (`/app/api/[...proxy]`)            │
-│  • Ingestion Pipelines (File Multipart, URL Scraper, Git Clone Dispatcher)       │
-│  • AST CodeGraph Engine (Deterministic Symbol Extraction & Call Hierarchy)       │
-│  • Memory Controller (`/forget`, `/improve`, `/consolidate-entities`)           │
-│  • Graph Export Engine (Formatted D3 Node/Edge Topology Serializer)              │
-└────────────────────────────────────────┬─────────────────────────────────────────┘
-                                         │
-                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                        KNOWLEDGE & PERSISTENCE LAYER                             │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│  • Cognee Graph Memory Engine (Dataset Isolation per Project Scope)              │
-│  • Vector Embeddings & Relational Graph Store                                    │
-│  • Local File Storage & Code Cache (`uploads/`, `system_root/`)                  │
-└──────────────────────────────────────────────────────────────────────────────────┘
-```
+| **Data Scope** | Restricted to active editor buffers and open tabs. | **Unified Heterogeneous Graph:** External docs, PDFs, API specs, and AST syntax trees live in one persistent memory model. |
+| **Indexing Method** | **Arbitrary Text Slicing:** Breaks source code into fixed-length text chunks, severing function bodies from callers. | **Deterministic AST Graphing:** Parses code into semantic nodes (`Class`, `Function`, `Import`, `Route`) with verified relational edges. |
+| **Cross-Doc Linking** | Weak & ephemeral. Requires manual `@Web` lookups or pasting URLs into chat per prompt. | **Permanent Semantic Linking:** Mentions of endpoints or functions in documentation are natively linked to AST implementation nodes. |
+| **Complex Multi-Hop Queries** | ❌ Fails on questions like *"Which controller calls the auth middleware and where is it documented in our security spec?"* | ✅ Traverses multi-hop edges from route controller ➔ service ➔ middleware ➔ linked PDF security section. |
+| **Auditability & Explainability** | Black-box retrieval without visible reasoning paths. | **Interactive D3 Visualizer:** Inspect force-directed graph topologies, node centrality metrics, and active traversal paths. |
+| **Memory Hygiene** | Ephemeral context window; no mechanism to purge outdated code or refactored functions. | **Active Memory Management:** Built-in `forget` and `improve` APIs surgically purge dead code and calibrate graph recall. |
 
 ---
 
 ## ✨ Core Capabilities
 
 ### 🌳 1. Deterministic AST Code Graph Generation
-Instead of slicing code into arbitrary character windows, DevDoc executes an Abstract Syntax Tree (AST) parsing pipeline. It extracts explicit topological relationships:
-- `(FunctionA)-[:CALLS]->(FunctionB)`
-- `(Class)-[:IMPLEMENTS]->(Interface)`
-- `(EndpointRoute)-[:DEPENDS_ON]->(ServiceModule)`
+DevDoc doesn't guess code structure—it parses it. Using an Abstract Syntax Tree (AST) extraction pipeline, DevDoc generates an architectural Directed Acyclic Graph (DAG) structured into clear tiers:
+- **Tier 0 • Entry Points**: Application bootstrap, server initialization, CLI triggers.
+- **Tier 1 • HTTP Routing**: API route definitions, controller endpoints, request handlers.
+- **Tier 2 • Core Business Logic**: Service modules, domain orchestration, business rules.
+- **Tier 3 • Parsers & Manifests**: AST symbol extraction, manifest trackers, symbol indexing.
+- **Tier 4 • Configuration & State**: Settings, environment variables, database schemas.
 
 ### 📄 2. Heterogeneous Multi-Source Ingestion
-Feed your project knowledge from diverse assets simultaneously:
-- **Architecture Documentation:** Ingest `.pdf`, `.md`, `.txt`, `.docx`, and `.json` files via drag-and-drop.
-- **Remote Web Documentation:** Crawl online API references, framework documentation, or wiki URLs.
-- **Source Code Repositories:** Point DevDoc to a local filesystem folder or a remote Git clone URL (`https://github.com/...`).
+Feed knowledge into your project from multiple disparate sources simultaneously:
+- **Git Repositories & Local Folders**: Ingest local codebases or clone remote GitHub repositories (`https://github.com/...`).
+- **Technical Documentation**: Drag-and-drop `.pdf`, `.md`, `.txt`, `.docx`, and `.json` documents.
+- **Remote Web Documentation**: Crawl framework documentation, external wikis, or OpenAPI/Swagger URLs.
 
 ### 🕸️ 3. Interactive D3.js Force-Directed Graph Visualizer
-Inspect your knowledge graph in real-time. The visualizer renders nodes categorized by entity type (`File`, `Function`, `Class`, `Document`, `Entity`), complete with physics simulation (charge repulsion, collision detection, and edge elasticity), search filters, and an interactive slide-over node inspector.
+Inspect your project's knowledge graph with real-time physics simulation:
+- **Hub & Satellite Clustering**: AST symbols (functions, methods, classes) visually orbit their parent file hub.
+- **Layered Architecture View**: Toggle between a physics-driven force layout and an architectural DAG hierarchy.
+- **Deep-Dive Symbol Inspector**: Click any node to inspect its file origin, outgoing/incoming call edges, degree centrality, and associated documentation.
 
-### 🧹 4. Active Memory Pruning & Hygiene
-Knowledge bases rot when code refactors happen. DevDoc provides first-class memory management:
-- **`forget`**: Surgically remove stale files, superseded documentation, or obsolete endpoints from the graph.
-- **`improve`**: Submit natural-language correction feedback to calibrate subsequent graph retrieval passes.
+### 🧹 4. Active Memory Pruning & Continuous Self-Improvement
+Knowledge bases rot when code refactors happen. DevDoc provides active memory management:
+- **`forget` Endpoint**: Surgically delete obsolete endpoints, superseded documentation, or renamed files without rebuilding the entire graph.
+- **`improve` Endpoint**: Submit natural-language correction feedback to calibrate subsequent graph retrieval passes.
 
-### 💻 5. Dual-Surface Client Ecosystem
-- **Next.js 16 Web Dashboard:** A responsive, dark-mode glassmorphic workspace featuring chat with syntax-highlighted code blocks, citation badges, graph topology controls, and ingestion pipelines.
-- **VS Code Extension:** Brings the full power of DevDoc directly into the developer's IDE via an integrated WebView panel and editor context menus ("*Query Copilot about Selection*").
+### 💻 5. High-Density Glassmorphic Web Dashboard
+A responsive dark-mode workspace built with Next.js 16, Tailwind CSS, Framer Motion, and D3.js—featuring source-aware chat, citation badges, topology controls, and drag-and-drop ingestion pipelines.
 
 ---
 
-## 📁 Repository Layout
+## 🏛️ System Architecture
+
+DevDoc is designed as a clean, decoupled monorepo:
+
+```mermaid
+flowchart TD
+    subgraph Clients[" Client Surface "]
+        Web["Next.js 16 Web Dashboard<br/>(Tailwind • Framer • D3.js)"]
+    end
+
+    subgraph API[" API Gateway & Backend "]
+        Proxy["Next.js Proxy Forwarder<br/>/app/api/[...proxy]"]
+        FastAPI["FastAPI Core Service (:8000)<br/>REST Endpoints • CORS Middleware"]
+    end
+
+    subgraph Pipelines[" Processing & Ingestion Pipelines "]
+        ASTEngine["AST CodeGraph Engine<br/>(Deterministic Symbol Extraction)"]
+        DocIngest["Doc & Web Ingestion<br/>(PDF, Markdown, Web Crawler)"]
+        MemoryCtrl["Memory Controller<br/>(/forget • /improve • /sources)"]
+    end
+
+    subgraph Memory[" Knowledge & Persistence Layer "]
+        Cognee["Cognee Knowledge Graph<br/>(Project-Scoped Datasets)"]
+        VectorStore["Vector Embeddings<br/>(FastEmbed / OpenAI)"]
+        GraphStore["Relational / Topology Store<br/>(LanceDB / KùzuDB)"]
+    end
+
+    Web -->|HTTP / REST| Proxy
+    Proxy -->|Forward| FastAPI
+
+    FastAPI --> ASTEngine
+    FastAPI --> DocIngest
+    FastAPI --> MemoryCtrl
+
+    ASTEngine --> Cognee
+    DocIngest --> Cognee
+    MemoryCtrl --> Cognee
+
+    Cognee --> VectorStore
+    Cognee --> GraphStore
+```
+
+---
+
+## 🖼️ UI Walkthrough & Gallery
+
+<div align="center">
+
+### 1. Interactive Force-Directed Knowledge Graph
+*Explore your codebase topology, AST symbol clusters, and documentation connections with real-time physics.*
+
+![DevDoc Knowledge Graph Explorer](devdoc/frontend/public/images/query_graph_dark.png)
+
+<br />
+
+### 2. Multi-Source Ingestion Studio
+*Ingest GitHub repositories, local directories, PDFs, and remote documentation URLs into project-scoped datasets.*
+
+![DevDoc Multi-Source Ingestion Studio](devdoc/frontend/public/images/ingest_docs_dark.png)
+
+<br />
+
+### 3. Topological AST Code Graph & Symbol Inspector
+*Inspect architectural tiers, file hubs, satellite symbols, and caller-callee execution edges.*
+
+![DevDoc AST Code Graph](devdoc/frontend/public/images/map_code_dark.png)
+
+</div>
+
+---
+
+## 📁 Repository Structure
 
 ```text
 devDoc/
-├── docs/                                  # Project & Architecture Specifications
-│   └── FRONTEND_DESIGN_SPEC.md            # Design tokens, CSS system, and UI blueprint
-├── devdoc/                                # Main application codebase
-│   ├── backend/                           # FastAPI Application & Cognee Integration
-│   │   ├── main.py                        # FastAPI routes, CORS, request schemas
+├── docs/                                  # Architectural & UI Specifications
+│   └── FRONTEND_DESIGN_SPEC.md            # Glassmorphic tokens, CSS system, component blueprint
+├── devdoc/                                # Application Source Monorepo
+│   ├── backend/                           # FastAPI Service & Cognee Engine
+│   │   ├── main.py                        # REST API routes, startup lifespan, CORS
 │   │   ├── cognee_service.py              # Cognee SDK wrapper & AST pipeline logic
-│   │   ├── graph_routes.py                # Graph data, metrics, and inventory endpoints
-│   │   ├── config.py                      # Pydantic environment configuration
-│   │   └── requirements.txt               # Python backend dependencies
-│   ├── frontend/                          # Next.js 16 SPA Client
-│   │   ├── app/                           # App router (Layout, Providers, API Proxy)
-│   │   ├── components/                    # Dashboard, Chat, Ingest, Graph, Memory UI
-│   │   ├── hooks/                         # Toast & reactive telemetry hooks
-│   │   ├── lib/                           # API client, D3 helpers, utility routines
-│   │   └── tailwind.config.ts             # Glassmorphism design token configuration
-│   ├── vscode-extension/                  # VS Code Extension
-│   │   ├── src/                           # Extension activation & WebView controller
-│   │   ├── package.json                   # Extension manifest & command bindings
-│   │   └── tsconfig.json                  # TypeScript compiler settings
-│   ├── scripts/                           # Automation scripts
-│   │   ├── devdoc_starter.py              # Interactive CLI starter & verification tool
-│   │   ├── setup_and_run.bat              # Windows setup and launch automation
-│   │   └── setup_and_run.sh               # Unix/macOS setup and launch automation
-│   ├── tests/                             # Backend integration & endpoint test suite
-│   │   ├── test_endpoints.py              # Pytest API route verification
-│   │   ├── test_data.py                   # Mock ingestion fixtures
+│   │   ├── graph_routes.py                # D3 graph serializer, inventory & metrics endpoints
+│   │   ├── config.py                      # Pydantic environment configuration & defaults
+│   │   ├── Dockerfile                     # Container deployment image
+│   │   └── requirements.txt               # Backend Python dependencies
+│   ├── frontend/                          # Next.js 16 Web Dashboard
+│   │   ├── app/                           # App Router (Layout, Providers, API Proxy)
+│   │   ├── components/                    # Glassmorphism UI (Chat, Graph, Ingest, Memory)
+│   │   ├── hooks/                         # Telemetry & toast notification hooks
+│   │   ├── lib/                           # Typed API client, D3 simulation utilities
+│   │   └── tailwind.config.ts             # Tailwind CSS tokens & color variables
+│   ├── scripts/                           # Setup and Automation Scripts
+│   │   ├── devdoc_starter.py              # Interactive verification CLI
+│   │   ├── setup_and_run.bat              # One-click Windows launch automation
+│   │   └── setup_and_run.sh               # One-click Linux/macOS launch automation
+│   ├── tests/                             # Pytest Suite
+│   │   ├── test_endpoints.py              # API route verification & health checks
+│   │   ├── test_data.py                   # Ingestion test fixtures
 │   │   └── test_query.py                  # Knowledge graph query validation
-│   ├── Makefile                           # Unified developer tasks (install, run, test)
+│   ├── Makefile                           # Developer shortcut targets
 │   └── setup_all.sh                       # Monorepo dependency installer
-├── .env.example                           # Root environment variable template
+├── .env.example                           # Multi-provider environment configuration template
 └── README.md                              # Main documentation hub
 ```
 
@@ -183,38 +212,58 @@ devDoc/
 ### Prerequisites
 - **Python:** `3.10` or higher
 - **Node.js:** `18.x` or higher (with `npm`)
-- **API Key:** An OpenAI (or compatible) API key for LLM and embeddings
+- **Git**
 
 ---
 
 ### Step 1: Clone and Configure Environment
 
 ```bash
-# Clone the repository
 git clone https://github.com/Saumojit30/DevDoc.git
 cd DevDoc
 
-# Copy the environment template
+# Create your environment configuration file
 cp .env.example .env
 ```
 
-Edit `.env` with your preferred credentials:
+Open `.env` and select your preferred LLM provider. DevDoc includes pre-built templates for all major setups:
+
+#### Option A: Groq (Recommended Free Cloud Tier — Ultra Fast)
+```ini
+LLM_PROVIDER="groq"
+LLM_MODEL="llama-3.1-8b-instant"
+LLM_ENDPOINT="https://api.groq.com/openai/v1"
+LLM_API_KEY="gsk_your_groq_key"
+```
+
+#### Option B: Local Ollama (100% Free, Offline & Private)
+```ini
+LLM_PROVIDER="ollama"
+LLM_MODEL="qwen2.5-coder:7b"
+LLM_ENDPOINT="http://localhost:11434/v1"
+LLM_API_KEY=""
+```
+
+#### Option C: Google Gemini (AI Studio or Vertex AI)
+```ini
+LLM_PROVIDER="gemini"
+LLM_MODEL="gemini-2.5-flash"
+LLM_API_KEY="AIzaSy_your_gemini_key"
+```
+
+#### Option D: OpenAI
 ```ini
 LLM_PROVIDER="openai"
-LLM_MODEL="gpt-4o"
+LLM_MODEL="gpt-4o-mini"
 LLM_API_KEY="sk-your-openai-key"
-
-EMBEDDING_PROVIDER="openai"
-EMBEDDING_MODEL="text-embedding-3-small"
-EMBEDDING_DIMENSIONS="1536"
-
-COGNEE_SKIP_CONNECTION_TEST=true
-CORS_ORIGINS="http://localhost:3000"
 ```
+
+> [!NOTE]
+> By default, DevDoc uses **FastEmbed** (`sentence-transformers/all-MiniLM-L6-v2`) for embeddings, which runs 100% locally and free on your CPU.
 
 ---
 
-### Step 2: Automated Launch
+### Step 2: One-Click Automated Launch
 
 #### Windows (PowerShell)
 ```powershell
@@ -231,11 +280,11 @@ chmod +x scripts/setup_and_run.sh
 
 ---
 
-### Step 3: Manual Component Startup (Alternative)
+### Step 3: Manual Component Startup (Optional)
 
-If you prefer running the components in separate terminal windows:
+If you prefer running services in separate terminal windows:
 
-#### Terminal 1 — Backend (FastAPI)
+#### Terminal 1 — Backend Core (FastAPI)
 ```bash
 cd devdoc/backend
 python -m venv .venv
@@ -248,46 +297,40 @@ python -m venv .venv
 pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-*Backend runs at `http://localhost:8000` (Swagger docs at `http://localhost:8000/docs`).*
+> *Swagger interactive API docs will be available at `http://localhost:8000/docs`.*
 
-#### Terminal 2 — Frontend (Next.js 16)
+#### Terminal 2 — Frontend Dashboard (Next.js 16)
 ```bash
 cd devdoc/frontend
 npm install
 npm run dev
 ```
-*Frontend runs at `http://localhost:3000`.*
-
-#### Terminal 3 — VS Code Extension (Optional)
-```bash
-cd devdoc/vscode-extension
-npm install
-npm run compile
-```
-*Press `F5` inside VS Code with the `vscode-extension` directory open to launch the Extension Development Host.*
+> *Web application will be accessible at `http://localhost:3000`.*
 
 ---
 
 ## 📡 Backend API Reference
 
-| Method | Endpoint | Request Body / Parameters | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/health` | — | Health check, version status, and service liveness. |
-| `POST` | `/api/chat` | `{ project: string, question: string, onlyContext?: bool, sessionId?: string }` | Queries the knowledge graph and generates citation-backed answers. |
-| `POST` | `/api/ingest/docs` | `FormData(project: string, urls?: string, files?: File[])` | Ingests uploaded documents (`.pdf`, `.md`, `.txt`) and web URLs. |
-| `POST` | `/api/ingest/code` | `{ project: string, repoPath: string, cloneUrl?: string, sessionId?: string }` | Ingests a local codebase or clones a remote Git repo into the AST graph. |
-| `POST` | `/api/memory/forget` | `{ project: string, source: string, sessionId?: string }` | Removes a specific file, URL, or code node from project memory. |
-| `POST` | `/api/memory/improve` | `{ project: string, feedback?: string, sessionIds: string[] }` | Refines and reinforces graph retrieval using feedback notes. |
-| `POST` | `/api/memory/sources` | `{ project: string }` | Lists all active ingested sources and datasets for a project. |
-| `POST` | `/api/graph/data` | `{ project: string }` | Returns node and edge collections formatted for D3 force rendering. |
-| `POST` | `/api/graph/metrics` | `{ project: string }` | Computes graph metrics (node count, edge count, density). |
-| `POST` | `/api/graph/inventory` | `{ project: string, samples_per_type?: number }` | Returns a categorized inventory of graph entity nodes. |
+All endpoints accept and return JSON unless otherwise noted.
+
+| Category | Method | Endpoint | Request Body | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **System** | `GET` | `/health` | — | Health check, Cognee service liveness, and version. |
+| **Chat & Q&A** | `POST` | `/api/chat` | `{ project, question, onlyContext?, sessionId? }` | Queries the knowledge graph and returns citation-backed answers. |
+| **Ingestion** | `POST` | `/api/ingest/docs` | `FormData(project, urls?, files?)` | Ingests uploaded documents (`.pdf`, `.md`, `.txt`) and web URLs. |
+| **Ingestion** | `POST` | `/api/ingest/code` | `{ project, repoPath, cloneUrl?, sessionId? }` | Ingests a local codebase directory or clones a Git repo into the AST graph. |
+| **Memory** | `POST` | `/api/memory/forget` | `{ project, source, sessionId? }` | Surgically removes a file, URL, or code node from project memory. |
+| **Memory** | `POST` | `/api/memory/improve` | `{ project, feedback?, sessionIds }` | Refines and reinforces graph retrieval using feedback notes. |
+| **Memory** | `POST` | `/api/memory/sources` | `{ project }` | Returns a list of all active ingested sources for a project. |
+| **Topology** | `POST` | `/api/graph/data` | `{ project }` | Returns node and edge collections formatted for D3 force rendering. |
+| **Topology** | `POST` | `/api/graph/metrics` | `{ project }` | Computes graph metrics (node count, edge count, density). |
+| **Topology** | `POST` | `/api/graph/inventory` | `{ project, samples_per_type? }` | Returns a categorized inventory of graph entity nodes. |
 
 ---
 
 ## 🧪 Testing & Verification
 
-The repository includes test suites to validate endpoints, data handling, and query generation:
+DevDoc includes end-to-end integration tests to validate endpoints, data ingestion, and graph query generation:
 
 ```bash
 cd devdoc
@@ -296,36 +339,31 @@ cd devdoc
 pytest tests/ -v
 ```
 
-To run an end-to-end ingestion and query cycle via the automated starter CLI:
+To run an interactive verification cycle via the CLI starter tool:
 ```bash
-python devdoc/scripts/devdoc_starter.py
+python scripts/devdoc_starter.py
 ```
 
 ---
 
-## 🎨 Design System & Visual Architecture
+## 🗺️ Roadmap & Vision
 
-DevDoc's frontend follows strict design guidelines engineered for deep-work developer environments:
-- **Glassmorphism**: Multi-layer backdrop filters (`blur(32px)` / `blur(40px)`) with subtle border glows.
-- **Adaptive D3 Physics**: Configurable alpha decay, link distance, and charge strength for stable graph visualizations.
-- **Framer Motion Transitions**: Smooth layout animations and view switching.
-
-*For full details on typography, color tokens, and component structure, see [Frontend Design Specification](docs/FRONTEND_DESIGN_SPEC.md).*
-
----
-
-## 🗺️ Roadmap
-
-- [x] Deterministic AST parsing for Python, TypeScript, and JavaScript
-- [x] Multi-source document ingestion (PDFs, Markdown, Web URLs)
-- [x] D3.js interactive force-directed graph viewer
-- [x] VS Code WebView extension integration
-- [ ] Language server protocol (LSP) AST integration for C++, Rust, and Go
-- [ ] Multi-tenant team graph synchronization via Neo4j / Memgraph connectors
-- [ ] Automated CI/CD documentation diff ingestion via GitHub Actions
+- [x] Deterministic AST parsing for 20+ languages (Python, TypeScript, JavaScript, Go, Rust, Java, C/C++)
+- [x] Heterogeneous multi-source ingestion (PDFs, Markdown, Web URLs, Git repositories)
+- [x] D3.js interactive force-directed visualizer with layered architecture DAG view
+- [x] Active memory pruning (`/forget`) and reinforcement calibration (`/improve`)
+- [x] High-performance glassmorphic Next.js 16 web dashboard
+- [x] Multi-LLM provider support (Groq, Local Ollama, Gemini, OpenAI)
+- [ ] Language Server Protocol (LSP) AST integration for real-time symbol tracking
+- [ ] Multi-tenant enterprise team synchronization via Neo4j / Memgraph connectors
+- [ ] GitHub Actions CI/CD bot for automated pull-request documentation diff ingestion
 
 ---
 
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+<div align="center">
+  <sub>Built with ❤️ for developers who build deep, ambitious software systems.</sub>
+</div>

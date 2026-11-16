@@ -1,30 +1,35 @@
-# DevDoc
+# DevDoc — Core Monorepo
 
 > **Deterministic AST Code-Graph & Cross-Doc Knowledge Engine for Multi-Modal Developer Assistance**
 
-`#graph-rag` `#knowledge-graph` `#ast-parser` `#cognee` `#fastapi` `#nextjs-16` `#typescript` `#d3js` `#vscode-extension` `#multi-modal-rag`
+[![Main Documentation](https://img.shields.io/badge/Project-Documentation%20Hub-blue?style=flat-square)](../README.md)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square)](backend/)
+[![Next.js 16](https://img.shields.io/badge/Next.js%2016-App%20Router-black?style=flat-square)](frontend/)
+
+For the comprehensive project presentation, architecture deep dive, UI walkthrough, and quick start guides, visit the root [**README.md**](../README.md).
+
+---
 
 DevDoc is a project-scoped developer assistant and knowledge engine built around Cognee’s graph memory. It generates deterministic Abstract Syntax Tree (AST) code graphs and fuses them with external documentation (PDFs, Markdown, Web URLs) into a unified knowledge graph—answering questions with exact citation-backed reasoning and D3 force-directed visual inspection.
 
-The codebase contains three integrated surfaces:
+The codebase contains:
 
 - **Frontend (`frontend/`)**: Next.js 16 SPA dashboard featuring source-aware chat, D3 interactive force-directed graph visualizer, and multi-source ingestion.
 - **Backend (`backend/`)**: FastAPI service wrapping the Cognee SDK, AST CodeGraph pipelines, and graph metrics endpoints.
-- **VS Code Extension (`vscode-extension/`)**: Editor-integrated WebView client connecting directly to the local FastAPI backend.
 
 ## Architecture
 
-DevDoc uses a simple three-layer architecture:
+DevDoc uses a layered architecture:
 
 1. The frontend collects user intent through a dashboard, chat UI, ingestion panel, graph view, and memory controls.
-2. The backend turns those actions into Cognee operations and normalizes responses for the web app and the VS Code extension.
+2. The backend turns those actions into Cognee operations and normalizes responses for the web application.
 3. Cognee stores project-scoped knowledge as a graph so future questions can traverse related documentation and code instead of searching isolated text chunks.
 
 ### High-level flow
 
 ```text
 User action
-	→ Next.js UI or VS Code WebView
+	→ Next.js UI
 	→ Next.js API route or direct HTTP request
 	→ FastAPI backend
 	→ Cognee service layer
@@ -42,8 +47,6 @@ The frontend in `frontend/` is the primary product surface. It is a Next.js app 
 - Graph: visualizes the nodes and edges that were ingested
 - Memory: exposes forget and improve workflows for project hygiene
 
-The frontend also contains small shared components such as the top navigation, side navigation, toast system, and modal panels for improvement and profile actions.
-
 ### API layer
 
 The frontend does not talk to Cognee directly. Instead, it uses Next.js API routes as a thin proxy layer so the browser only needs to know about the web app origin. This keeps the UI simple and lets the backend remain the single source of truth for ingestion, recall, and memory operations.
@@ -59,15 +62,9 @@ The backend in `backend/` is a FastAPI service that owns request validation, fil
 - memory actions such as forget, improve, and source listing
 - graph metrics and graph inventory data
 
-Each route maps UI intent to a focused service method, which keeps the API predictable and makes it easier to extend the project with more graph operations later.
-
 ### Cognee layer
 
 Cognee is the persistence and reasoning layer. It stores each project in its own dataset and links documentation, code, and derived graph entities together. That structure is what allows the assistant to answer questions like “how does this code path relate to the deployment guide?” rather than only returning similar paragraphs.
-
-### VS Code extension layer
-
-The VS Code extension in `vscode-extension/` gives the same backend access inside the editor. It opens a WebView panel, uses the backend API on `localhost:8000`, and lets developers query selected code without leaving VS Code. That makes the extension a second client for the same backend, not a separate knowledge system.
 
 ## What it does
 
@@ -75,7 +72,6 @@ The VS Code extension in `vscode-extension/` gives the same backend access insid
 - Answers questions with graph-aware retrieval instead of plain chunk search
 - Supports memory actions like forget, improve, and source listing
 - Shows a visual knowledge graph and project dashboard in the web app
-- Mirrors the workflow in VS Code through a WebView-based extension
 
 ## Project layout
 
@@ -83,7 +79,6 @@ The VS Code extension in `vscode-extension/` gives the same backend access insid
 devdoc/
 ├── backend/          FastAPI service and Cognee integration
 ├── frontend/         Next.js app with chat, graph, and ingestion UI
-├── vscode-extension/ VS Code extension for IDE integration
 ├── scripts/          Setup and starter CLI helpers
 └── tests/            Endpoint & integration tests
 ```
@@ -157,7 +152,6 @@ Open the web app at `http://localhost:3000` and the backend Swagger docs at `htt
 - Knowledge graph visualization for exploring connected sources
 - Memory manager for forgetting and improving sources
 - Improve and profile panels for project maintenance
-- VS Code extension for in-editor access to the same backend
 
 ## How DevDoc Differs from Cursor & GitHub Copilot
 
@@ -168,7 +162,6 @@ Open the web app at `http://localhost:3000` and the backend Swagger docs at `htt
 | **External Doc Coupling** | Weak/Ephemeral. Requires `@Web` search or pasting doc URLs into chat manually per session. | **Permanent Cross-Document Linking:** Mentions of functions in `.pdf` or `.md` docs are explicitly linked as edges to the actual AST code nodes. |
 | **Data Scope & Persistence** | Scoped strictly to the currently open workspace window. | **Multi-Project Dataset Scoping:** Persistent, project-isolated knowledge base that survives across different sessions, machines, or non-editor environments. |
 | **Auditability & Visual Inspection** | Black-box context retrieval (you don't know *why* it picked a chunk). | **Interactive Graph Visualizer:** D3 force-directed inspection showing exact topological reasoning paths and node connections. |
-
 
 ## Backend API
 
@@ -188,18 +181,6 @@ The FastAPI service exposes endpoints such as:
 - `POST /api/graph/inventory`
 - `POST /api/graph/metrics`
 
-## VS Code extension
-
-The extension in `vscode-extension/` opens a WebView panel, talks to the FastAPI backend on `localhost:8000`, and adds a context-menu action for querying selected code.
-
-```bash
-cd vscode-extension
-npm install
-npm run compile
-```
-
-Then press `F5` in VS Code to launch the Extension Development Host.
-
 ## Scripts
  
 - `setup_all.sh` installs backend and frontend dependencies from the project root
@@ -210,7 +191,6 @@ Then press `F5` in VS Code to launch the Extension Development Host.
 
 - Frontend: Next.js, React, TypeScript, Tailwind CSS, Framer Motion, D3, React Markdown
 - Backend: FastAPI, Uvicorn, Python, Cognee SDK
-- Extension: VS Code Extension API, TypeScript, WebView UI
 
 ## Overview
 
